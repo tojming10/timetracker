@@ -239,7 +239,7 @@ export default function Home() {
 
       setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
       removeEntryScreenshotDraft(entry.id);
-      setMessage("Screenshot attached.");
+      setMessage(entry.photoPath ? "Screenshot updated." : "Screenshot attached.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not attach screenshot.");
     } finally {
@@ -577,12 +577,13 @@ export default function Home() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
-                        {entry.photoPath ? (
-                          <a className="inline-flex items-center gap-1 text-[#245c4f]" href={entry.photoPath} target="_blank">
-                            Screenshot <Camera size={14} />
-                          </a>
-                        ) : isPendingEntry(entry) ? null : (
+                        {isPendingEntry(entry) ? null : (
                           <div className="w-44">
+                            {entry.photoPath ? (
+                              <a className="mb-2 inline-flex items-center gap-1 text-[#245c4f]" href={entry.photoPath} target="_blank">
+                                Screenshot <Camera size={14} />
+                              </a>
+                            ) : null}
                             <div
                               className="flex min-h-20 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-2 py-3 text-center text-xs text-[#697066] outline-none focus:border-[#245c4f]"
                               onPaste={(event) => pasteEntryScreenshot(event, entry.id)}
@@ -598,7 +599,7 @@ export default function Home() {
                                   alt="Pasted screenshot preview"
                                 />
                               ) : (
-                                "Paste screenshot"
+                                entry.photoPath ? "Paste replacement" : "Paste screenshot"
                               )}
                             </div>
                             {entryScreenshotDrafts[entry.id] ? (
@@ -608,7 +609,7 @@ export default function Home() {
                                   onClick={() => confirmEntryScreenshot(entry)}
                                   disabled={savingEntryScreenshotId === entry.id}
                                 >
-                                  Confirm
+                                  {entry.photoPath ? "Update" : "Confirm"}
                                 </button>
                                 <button
                                   className="h-8 rounded-md border border-[#d8d2c5] px-2 text-xs font-semibold"

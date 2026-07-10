@@ -17,7 +17,9 @@ export function formatIrishTime(value: Date | string) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-  }).format(new Date(value));
+  })
+    .format(new Date(value))
+    .replace(/\b(am|pm)\b/g, (match) => match.toUpperCase());
 }
 
 export function toIrishDateTimeInput(value: Date | string | null) {
