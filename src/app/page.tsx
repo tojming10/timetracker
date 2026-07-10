@@ -634,7 +634,7 @@ export default function Home() {
               {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
 
               <button
-                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#20231f] px-4 font-semibold text-white hover:bg-[#343930]"
+                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#2563eb] px-4 font-semibold text-white hover:bg-[#1d4ed8]"
                 type="button"
                 onClick={updateSelectedEntryDetails}
               >
@@ -886,7 +886,7 @@ export default function Home() {
                         ) : null}
                       </td>
                       <td className="px-2 py-3 xl:px-3">
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {editingTimes[entry.id] ? (
                             <button
                               className="h-8 rounded-md bg-[#20231f] px-2 text-xs font-semibold text-white"
@@ -900,7 +900,7 @@ export default function Home() {
                           ) : null}
                           {!entry.endTime && !isPendingEntry(entry) ? (
                             <button
-                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white"
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#b42318] px-2 text-xs font-semibold text-white hover:bg-[#912018]"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 stopTimer(entry.id);
