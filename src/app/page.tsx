@@ -63,6 +63,7 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [editingTimes, setEditingTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
+  const [deleteTarget, setDeleteTarget] = useState<TimeEntry | null>(null);
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -251,6 +252,7 @@ export default function Home() {
 
     setEntries((current) => current.filter((entry) => entry.id !== id));
     if (activeId === id) setActiveId(null);
+    setDeleteTarget(null);
   }
 
   const visibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
@@ -459,7 +461,7 @@ export default function Home() {
                           {isPendingEntry(entry) ? null : (
                             <button
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d8d2c5]"
-                              onClick={() => deleteEntry(entry.id)}
+                              onClick={() => setDeleteTarget(entry)}
                               title="Delete entry"
                             >
                               <Trash2 size={15} />
@@ -482,6 +484,38 @@ export default function Home() {
           </section>
         </section>
       </div>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div
+            className="w-full max-w-md rounded-md border border-[#ded9cd] bg-white p-5 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-entry-title"
+          >
+            <h2 id="delete-entry-title" className="text-lg font-semibold text-[#20231f]">
+              Delete entry?
+            </h2>
+            <p className="mt-2 text-sm text-[#4f554d]">
+              This will permanently delete “{deleteTarget.event}” from {formatIrishDate(deleteTarget.startTime)}.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="h-10 rounded-md border border-[#d8d2c5] px-4 text-sm font-semibold hover:bg-[#f2eee5]"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="h-10 rounded-md bg-[#9d2f2f] px-4 text-sm font-semibold text-white hover:bg-[#842727]"
+                onClick={() => deleteEntry(deleteTarget.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
