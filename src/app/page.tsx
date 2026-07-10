@@ -380,7 +380,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#20231f]">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-3 py-5 sm:px-5 lg:px-6">
         <header className="flex flex-col gap-3 border-b border-[#ded9cd] pb-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-[#697066]">Irish time zone: {IRISH_TIME_ZONE}</p>
@@ -401,7 +401,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="grid gap-5 lg:grid-cols-[380px_1fr]">
+        <section className="grid gap-5 xl:grid-cols-[340px_1fr]">
           <form onSubmit={startTimer} className="rounded-md border border-[#ded9cd] bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
@@ -510,22 +510,33 @@ export default function Home() {
               <p className="text-sm text-[#697066]">{visibleEntries.length} total</p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+            <div>
+              <table className="w-full table-fixed border-collapse text-left text-xs xl:text-sm">
+                <colgroup>
+                  <col className="w-[12%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
                 <thead className="bg-[#f2eee5] text-xs uppercase text-[#5f655d]">
                   <tr>
                     {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot", ""].map((column) => (
-                      <th key={column} className="px-4 py-3 font-semibold">{column}</th>
+                      <th key={column} className="px-2 py-3 font-semibold xl:px-3">{column}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {visibleEntries.map((entry) => (
                     <tr key={entry.id} className="border-t border-[#ece7dc] align-top">
-                      <td className="px-4 py-3">{formatIrishDate(entry.startTime)}</td>
-                      <td className="px-4 py-3">
+                      <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
+                      <td className="px-2 py-3 xl:px-3">
                         <input
-                          className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
+                          className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
                           type="time"
                           value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
                           disabled={isPendingEntry(entry)}
@@ -541,9 +552,9 @@ export default function Home() {
                         />
                         <p className="mt-1 font-mono text-xs text-[#697066]">{formatIrishTime(entry.startTime)}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 py-3 xl:px-3">
                         <input
-                          className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
+                          className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
                           type="time"
                           value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
                           disabled={isPendingEntry(entry)}
@@ -561,26 +572,26 @@ export default function Home() {
                           {entry.endTime ? formatIrishTime(entry.endTime) : "Running"}
                         </p>
                       </td>
-                      <td className="px-4 py-3 font-medium">
+                      <td className="break-words px-2 py-3 font-medium xl:px-3">
                         {entry.event}
                         {isPendingEntry(entry) ? (
                           <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
                         ) : null}
                       </td>
-                      <td className="max-w-xs px-4 py-3 text-[#4f554d]">{entry.description}</td>
-                      <td className="px-4 py-3 font-mono">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
-                      <td className="px-4 py-3">
+                      <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
+                      <td className="break-words px-2 py-3 font-mono xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
+                      <td className="break-words px-2 py-3 xl:px-3">
                         {entry.link ? (
-                          <a className="inline-flex items-center gap-1 text-[#245c4f]" href={entry.link} target="_blank">
+                          <a className="inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]" href={entry.link} target="_blank">
                             Open <ExternalLink size={14} />
                           </a>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 py-3 xl:px-3">
                         {isPendingEntry(entry) ? null : (
-                          <div className="w-44">
+                          <div className="w-full">
                             {entry.photoPath ? (
-                              <a className="mb-2 inline-flex items-center gap-1 text-[#245c4f]" href={entry.photoPath} target="_blank">
+                              <a className="mb-2 inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]" href={entry.photoPath} target="_blank">
                                 Screenshot <Camera size={14} />
                               </a>
                             ) : null}
@@ -622,11 +633,11 @@ export default function Home() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                      <td className="px-2 py-3 xl:px-3">
+                        <div className="flex flex-col gap-2">
                           {editingTimes[entry.id] ? (
                             <button
-                              className="h-8 rounded-md bg-[#20231f] px-3 text-xs font-semibold text-white"
+                              className="h-8 rounded-md bg-[#20231f] px-2 text-xs font-semibold text-white"
                               onClick={() => updateEntryTimes(entry)}
                             >
                               Save
@@ -634,7 +645,7 @@ export default function Home() {
                           ) : null}
                           {!entry.endTime && !isPendingEntry(entry) ? (
                             <button
-                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-3 text-xs font-semibold text-white"
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white"
                               onClick={() => stopTimer(entry.id)}
                               title="Stop timer"
                             >
@@ -644,7 +655,7 @@ export default function Home() {
                           ) : null}
                           {isPendingEntry(entry) ? null : (
                             <button
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d8d2c5]"
+                              className="inline-flex h-8 items-center justify-center rounded-md border border-[#d8d2c5]"
                               onClick={() => setDeleteTarget(entry)}
                               title="Delete entry"
                             >
