@@ -7,9 +7,9 @@ import {
   formatDuration,
   formatIrishDate,
   formatIrishTime,
-  fromIrishDateTimeInput,
+  fromIrishTimeInput,
   IRISH_TIME_ZONE,
-  toIrishDateTimeInput,
+  toIrishTimeInput,
 } from "@/lib/time";
 
 type TimeEntry = {
@@ -40,6 +40,11 @@ const emptyForm = {
   photoPath: "",
 };
 
+type ScreenshotDraft = {
+  file: File;
+  previewUrl: string;
+};
+
 async function readJsonResponse<T>(response: Response): Promise<T & { message?: string }> {
   const contentType = response.headers.get("content-type");
 
@@ -64,8 +69,10 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [editingTimes, setEditingTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
   const [deleteTarget, setDeleteTarget] = useState<TimeEntry | null>(null);
-  const [screenshotDraft, setScreenshotDraft] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [screenshotDraft, setScreenshotDraft] = useState<ScreenshotDraft | null>(null);
+  const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
+  const [savingEntryScreenshotId, setSavingEntryScreenshotId] = useState<string | null>(null);
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -111,24 +118,31 @@ export default function Home() {
   }, [screenshotDraft]);
 
   async function uploadScreenshotFile(file: File) {
-    if (!file) return;
+    if (!file) return null;
 
     const data = new FormData();
     data.append("photo", file);
+    const response = await fetch("/api/upload", { method: "POST", body: data });
+    const result = await readJsonResponse<{ path?: string }>(response);
+
+    if (!response.ok || !result.path) {
+      throw new Error(result.message ?? "Screenshot upload failed.");
+    }
+
+    return result.path;
+  }
+
+  async function confirmScreenshot() {
+    if (!screenshotDraft) return;
+
+    setIsSavingScreenshot(true);
     try {
-      const response = await fetch("/api/upload", { method: "POST", body: data });
-      const result = await readJsonResponse<{ path?: string }>(response);
-
-      if (!response.ok) {
-        setMessage(`${result.message ?? "Photo upload failed."} The timer is still safe; you can add the screenshot later.`);
-        return;
-      }
-
-      setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
+      const path = await uploadScreenshotFile(screenshotDraft.file);
+      setForm((current) => ({ ...current, photoPath: path ?? "" }));
       setMessage("Screenshot saved.");
       removeScreenshotDraft();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Photo upload failed.";
+      const errorMessage = error instanceof Error ? error.message : "Screenshot upload failed.";
       setMessage(`${errorMessage} The timer is still safe; you can add the screenshot later.`);
     } finally {
       setIsSavingScreenshot(false);
@@ -142,13 +156,6 @@ export default function Home() {
       }
       return null;
     });
-  }
-
-  async function confirmScreenshot() {
-    if (!screenshotDraft) return;
-
-    setIsSavingScreenshot(true);
-    await uploadScreenshotFile(screenshotDraft.file);
   }
 
   async function pasteScreenshot(event: ClipboardEvent<HTMLDivElement>) {
@@ -172,6 +179,72 @@ export default function Home() {
     });
     setForm((current) => ({ ...current, photoPath: "" }));
     setMessage("Screenshot pasted. Confirm it to attach it.");
+  }
+
+  async function pasteEntryScreenshot(event: ClipboardEvent<HTMLDivElement>, entryId: string) {
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"));
+    const file = imageItem?.getAsFile();
+
+    if (!file) {
+      setMessage("No screenshot image found on the clipboard.");
+      return;
+    }
+
+    event.preventDefault();
+    setEntryScreenshotDrafts((current) => {
+      const existing = current[entryId];
+      if (existing) URL.revokeObjectURL(existing.previewUrl);
+
+      return {
+        ...current,
+        [entryId]: {
+          file,
+          previewUrl: URL.createObjectURL(file),
+        },
+      };
+    });
+    setMessage("Screenshot pasted. Confirm it to attach it to this entry.");
+  }
+
+  function removeEntryScreenshotDraft(entryId: string) {
+    setEntryScreenshotDrafts((current) => {
+      const existing = current[entryId];
+      if (existing) URL.revokeObjectURL(existing.previewUrl);
+
+      const next = { ...current };
+      delete next[entryId];
+      return next;
+    });
+  }
+
+  async function confirmEntryScreenshot(entry: TimeEntry | DraftEntry) {
+    if (isPendingEntry(entry)) return;
+    const draft = entryScreenshotDrafts[entry.id];
+    if (!draft) return;
+
+    setSavingEntryScreenshotId(entry.id);
+    try {
+      const photoPath = await uploadScreenshotFile(draft.file);
+      const response = await fetch(`/api/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoPath }),
+      });
+      const updated = await readJsonResponse<TimeEntry>(response);
+
+      if (!response.ok) {
+        setMessage(updated.message ?? "Could not attach screenshot.");
+        return;
+      }
+
+      setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
+      removeEntryScreenshotDraft(entry.id);
+      setMessage("Screenshot attached.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not attach screenshot.");
+    } finally {
+      setSavingEntryScreenshotId(null);
+    }
   }
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
@@ -256,8 +329,8 @@ export default function Home() {
       return;
     }
 
-    const startTime = fromIrishDateTimeInput(values.startTime);
-    const endTime = values.endTime ? fromIrishDateTimeInput(values.endTime) : null;
+    const startTime = fromIrishTimeInput(entry.startTime, values.startTime);
+    const endTime = values.endTime ? fromIrishTimeInput(entry.startTime, values.endTime) : null;
 
     if (endTime && new Date(endTime).getTime() < new Date(startTime).getTime()) {
       setMessage("End time cannot be earlier than start time.");
@@ -453,15 +526,15 @@ export default function Home() {
                       <td className="px-4 py-3">
                         <input
                           className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="datetime-local"
-                          value={editingTimes[entry.id]?.startTime ?? toIrishDateTimeInput(entry.startTime)}
+                          type="time"
+                          value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
                           disabled={isPendingEntry(entry)}
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
                               [entry.id]: {
                                 startTime: event.target.value,
-                                endTime: current[entry.id]?.endTime ?? toIrishDateTimeInput(entry.endTime),
+                                endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
                               },
                             }))
                           }
@@ -471,14 +544,14 @@ export default function Home() {
                       <td className="px-4 py-3">
                         <input
                           className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="datetime-local"
-                          value={editingTimes[entry.id]?.endTime ?? toIrishDateTimeInput(entry.endTime)}
+                          type="time"
+                          value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
                           disabled={isPendingEntry(entry)}
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
                               [entry.id]: {
-                                startTime: current[entry.id]?.startTime ?? toIrishDateTimeInput(entry.startTime),
+                                startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
                                 endTime: event.target.value,
                               },
                             }))
@@ -508,7 +581,45 @@ export default function Home() {
                           <a className="inline-flex items-center gap-1 text-[#245c4f]" href={entry.photoPath} target="_blank">
                             Screenshot <Camera size={14} />
                           </a>
-                        ) : null}
+                        ) : isPendingEntry(entry) ? null : (
+                          <div className="w-44">
+                            <div
+                              className="flex min-h-20 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-2 py-3 text-center text-xs text-[#697066] outline-none focus:border-[#245c4f]"
+                              onPaste={(event) => pasteEntryScreenshot(event, entry.id)}
+                              tabIndex={0}
+                              role="textbox"
+                              aria-label="Paste screenshot for entry"
+                            >
+                              {entryScreenshotDrafts[entry.id] ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  className="max-h-28 w-full rounded-md object-contain"
+                                  src={entryScreenshotDrafts[entry.id].previewUrl}
+                                  alt="Pasted screenshot preview"
+                                />
+                              ) : (
+                                "Paste screenshot"
+                              )}
+                            </div>
+                            {entryScreenshotDrafts[entry.id] ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  className="h-8 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white disabled:opacity-60"
+                                  onClick={() => confirmEntryScreenshot(entry)}
+                                  disabled={savingEntryScreenshotId === entry.id}
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  className="h-8 rounded-md border border-[#d8d2c5] px-2 text-xs font-semibold"
+                                  onClick={() => removeEntryScreenshotDraft(entry.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
