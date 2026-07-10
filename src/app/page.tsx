@@ -21,6 +21,16 @@ const emptyForm = {
   photoPath: "",
 };
 
+async function readJsonResponse<T>(response: Response): Promise<T & { message?: string }> {
+  const contentType = response.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    return response.json();
+  }
+
+  return { message: await response.text() } as T & { message?: string };
+}
+
 export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -30,10 +40,20 @@ export default function Home() {
   const [message, setMessage] = useState("");
 
   const fetchEntries = useCallback(async () => {
-    const response = await fetch("/api/entries");
-    const data = await response.json();
-    setEntries(data);
-    setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
+    try {
+      const response = await fetch("/api/entries");
+      const data = await readJsonResponse<TimeEntry[]>(response);
+
+      if (!response.ok || !Array.isArray(data)) {
+        setMessage(data.message ?? "Could not load entries.");
+        return;
+      }
+
+      setEntries(data);
+      setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not load entries.");
+    }
   }, []);
 
   useEffect(() => {
@@ -59,14 +79,14 @@ export default function Home() {
     const data = new FormData();
     data.append("photo", file);
     const response = await fetch("/api/upload", { method: "POST", body: data });
-    const result = await response.json();
+    const result = await readJsonResponse<{ path?: string }>(response);
 
     if (!response.ok) {
       setMessage(result.message ?? "Photo upload failed.");
       return;
     }
 
-    setForm((current) => ({ ...current, photoPath: result.path }));
+    setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
   }
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
@@ -78,25 +98,30 @@ export default function Home() {
 
     setIsSaving(true);
     setMessage("");
-    const response = await fetch("/api/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        startTime: new Date().toISOString(),
-      }),
-    });
-    const entry = await response.json();
-    setIsSaving(false);
+    try {
+      const response = await fetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          startTime: new Date().toISOString(),
+        }),
+      });
+      const entry = await readJsonResponse<TimeEntry>(response);
 
-    if (!response.ok) {
-      setMessage(entry.message ?? "Could not start timer.");
-      return;
+      if (!response.ok || !entry.id) {
+        setMessage(entry.message ?? "Could not start timer.");
+        return;
+      }
+
+      setEntries((current) => [entry, ...current]);
+      setActiveId(entry.id);
+      setForm(emptyForm);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not start timer.");
+    } finally {
+      setIsSaving(false);
     }
-
-    setEntries((current) => [entry, ...current]);
-    setActiveId(entry.id);
-    setForm(emptyForm);
   }
 
   async function stopTimer(id: string) {
@@ -105,7 +130,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ endTime: new Date().toISOString() }),
     });
-    const updated = await response.json();
+    const updated = await readJsonResponse<TimeEntry>(response);
 
     if (!response.ok) {
       setMessage(updated.message ?? "Could not stop timer.");
@@ -117,7 +142,14 @@ export default function Home() {
   }
 
   async function deleteEntry(id: string) {
-    await fetch(`/api/entries/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/entries/${id}`, { method: "DELETE" });
+    const result = await readJsonResponse<{ ok?: boolean }>(response);
+
+    if (!response.ok) {
+      setMessage(result.message ?? "Could not delete entry.");
+      return;
+    }
+
     setEntries((current) => current.filter((entry) => entry.id !== id));
     if (activeId === id) setActiveId(null);
   }
