@@ -4,7 +4,15 @@ import { google } from "googleapis";
 export const SCREENSHOT_FOLDER_ID = process.env.GOOGLE_DRIVE_SCREENSHOT_FOLDER_ID ?? "1s_Qd4eiBOyDnPtTGfCFuWHbI385IH8ff";
 
 function getPrivateKey() {
-  return process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
+
+  if (!privateKey) return undefined;
+
+  if (privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
+    return privateKey;
+  }
+
+  return `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
 }
 
 export function getDriveClient() {
