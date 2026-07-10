@@ -41,6 +41,7 @@ const emptyForm = {
 
 const defaultEventOptions = ["WICA 2026", "GA UK 2026", "NPA 2026"];
 const eventOptionsStorageKey = "time-tracker-event-options";
+const removedEventOptions = ["video proofing"];
 
 type ScreenshotDraft = {
   file: File;
@@ -59,6 +60,14 @@ async function readJsonResponse<T>(response: Response): Promise<T & { message?: 
 
 function isPendingEntry(entry: TimeEntry | DraftEntry) {
   return "pending" in entry && entry.pending === true;
+}
+
+function isRemovedEventOption(value: string) {
+  return removedEventOptions.includes(value.trim().toLowerCase());
+}
+
+function cleanEventOptions(options: string[]) {
+  return Array.from(new Set(options.map((option) => option.trim()).filter((option) => option && !isRemovedEventOption(option))));
 }
 
 export default function Home() {
@@ -84,7 +93,7 @@ export default function Home() {
     try {
       const parsedOptions = JSON.parse(savedOptions);
       if (Array.isArray(parsedOptions)) {
-        return Array.from(new Set([...defaultEventOptions, ...parsedOptions.filter(Boolean)]));
+        return cleanEventOptions([...defaultEventOptions, ...parsedOptions.filter(Boolean)]);
       }
     } catch {
       return defaultEventOptions;
@@ -107,7 +116,7 @@ export default function Home() {
       }
 
       setEntries(data);
-      setEventOptions((current) => Array.from(new Set([...current, ...data.map((entry) => entry.event).filter(Boolean)])));
+      setEventOptions((current) => cleanEventOptions([...current, ...data.map((entry) => entry.event).filter(Boolean)]));
       if (!draftEntry) {
         setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
       }
@@ -286,11 +295,6 @@ export default function Home() {
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form.event.trim()) {
-      setMessage("Add a task before starting the timer.");
-      return;
-    }
-
     if (screenshotDraft) {
       setMessage("Confirm or delete the pasted screenshot before starting the timer.");
       return;
@@ -395,6 +399,25 @@ export default function Home() {
     setMessage("Times updated.");
   }
 
+  async function updateEntryEvent(entry: TimeEntry | DraftEntry, eventName: string) {
+    if (isPendingEntry(entry)) return;
+
+    const response = await fetch(`/api/entries/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: eventName }),
+    });
+    const updated = await readJsonResponse<TimeEntry>(response);
+
+    if (!response.ok) {
+      setMessage(updated.message ?? "Could not update event.");
+      return;
+    }
+
+    setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
+    setMessage("Event updated.");
+  }
+
   async function deleteEntry(id: string) {
     const response = await fetch(`/api/entries/${id}`, { method: "DELETE" });
     const result = await readJsonResponse<{ ok?: boolean }>(response);
@@ -416,7 +439,12 @@ export default function Home() {
       return;
     }
 
-    const nextOptions = Array.from(new Set([...eventOptions, nextEventName]));
+    if (isRemovedEventOption(nextEventName)) {
+      setMessage("That event option has been removed.");
+      return;
+    }
+
+    const nextOptions = cleanEventOptions([...eventOptions, nextEventName]);
     setEventOptions(nextOptions);
     window.localStorage.setItem(eventOptionsStorageKey, JSON.stringify(nextOptions));
     setForm((current) => ({ ...current, event: nextEventName }));
@@ -654,7 +682,19 @@ export default function Home() {
                         />
                       </td>
                       <td className="break-words px-2 py-3 font-medium xl:px-3">
-                        {entry.event}
+                        <select
+                          className="h-9 w-full rounded-md border border-[#d8d2c5] bg-white px-2 text-xs outline-none focus:border-[#245c4f]"
+                          value={eventOptions.includes(entry.event) ? entry.event : ""}
+                          disabled={isPendingEntry(entry)}
+                          onChange={(event) => updateEntryEvent(entry, event.target.value)}
+                        >
+                          <option value="">No event</option>
+                          {eventOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
                         {isPendingEntry(entry) ? (
                           <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
                         ) : null}

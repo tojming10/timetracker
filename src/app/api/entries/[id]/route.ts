@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if ("event" in body) {
-      updates.event = body.event?.trim?.() || null;
+      updates.event = body.event?.trim?.() || "";
     }
     if ("description" in body) {
       updates.description = body.description?.trim?.() || null;

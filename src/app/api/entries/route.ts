@@ -29,10 +29,6 @@ export async function POST(request: Request) {
     const startTime = body.startTime ? new Date(body.startTime) : new Date();
     const endTime = body.endTime ? new Date(body.endTime) : null;
 
-    if (!body.event || typeof body.event !== "string") {
-      return NextResponse.json({ message: "Event is required." }, { status: 400 });
-    }
-
     if (Number.isNaN(startTime.getTime()) || (endTime && Number.isNaN(endTime.getTime()))) {
       return NextResponse.json({ message: "Invalid start or end time." }, { status: 400 });
     }
@@ -42,7 +38,7 @@ export async function POST(request: Request) {
       .insert({
         start_time: startTime.toISOString(),
         end_time: endTime?.toISOString() ?? null,
-        event: body.event.trim(),
+        event: typeof body.event === "string" ? body.event.trim() : "",
         description: body.description?.trim() || null,
         link: body.link?.trim() || null,
         photo_path: body.photoPath || null,
