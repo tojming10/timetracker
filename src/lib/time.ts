@@ -3,11 +3,12 @@ import { fromZonedTime, toZonedTime } from "date-fns-tz";
 export const IRISH_TIME_ZONE = "Europe/Dublin";
 
 export function formatIrishDate(value: Date | string) {
-  return new Intl.DateTimeFormat("en-IE", {
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: IRISH_TIME_ZONE,
+    weekday: "long",
     year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    month: "long",
+    day: "numeric",
   }).format(new Date(value));
 }
 
