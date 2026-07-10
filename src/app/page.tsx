@@ -64,6 +64,8 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [editingTimes, setEditingTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
   const [deleteTarget, setDeleteTarget] = useState<TimeEntry | null>(null);
+  const [screenshotDraft, setScreenshotDraft] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -100,6 +102,14 @@ export default function Home() {
     [activeId, draftEntry, entries],
   );
 
+  useEffect(() => {
+    return () => {
+      if (screenshotDraft) {
+        URL.revokeObjectURL(screenshotDraft.previewUrl);
+      }
+    };
+  }, [screenshotDraft]);
+
   async function uploadScreenshotFile(file: File) {
     if (!file) return;
 
@@ -115,11 +125,30 @@ export default function Home() {
       }
 
       setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
-      setMessage("Screenshot pasted.");
+      setMessage("Screenshot saved.");
+      removeScreenshotDraft();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Photo upload failed.";
       setMessage(`${errorMessage} The timer is still safe; you can add the screenshot later.`);
+    } finally {
+      setIsSavingScreenshot(false);
     }
+  }
+
+  function removeScreenshotDraft() {
+    setScreenshotDraft((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return null;
+    });
+  }
+
+  async function confirmScreenshot() {
+    if (!screenshotDraft) return;
+
+    setIsSavingScreenshot(true);
+    await uploadScreenshotFile(screenshotDraft.file);
   }
 
   async function pasteScreenshot(event: ClipboardEvent<HTMLDivElement>) {
@@ -132,13 +161,28 @@ export default function Home() {
     }
 
     event.preventDefault();
-    await uploadScreenshotFile(file);
+    setScreenshotDraft((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return {
+        file,
+        previewUrl: URL.createObjectURL(file),
+      };
+    });
+    setForm((current) => ({ ...current, photoPath: "" }));
+    setMessage("Screenshot pasted. Confirm it to attach it.");
   }
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.event.trim()) {
       setMessage("Add a task before starting the timer.");
+      return;
+    }
+
+    if (screenshotDraft) {
+      setMessage("Confirm or delete the pasted screenshot before starting the timer.");
       return;
     }
 
@@ -321,15 +365,43 @@ export default function Home() {
 
             <label className="mt-4 block text-sm font-medium">Screenshot</label>
             <div
-              className="mt-2 flex min-h-24 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
+              className="mt-2 flex min-h-32 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
               onPaste={pasteScreenshot}
               tabIndex={0}
               role="textbox"
               aria-label="Paste screenshot"
             >
-              Paste a recent screenshot here
+              {screenshotDraft ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="max-h-48 w-full rounded-md object-contain"
+                  src={screenshotDraft.previewUrl}
+                  alt="Pasted screenshot preview"
+                />
+              ) : (
+                "Paste a recent screenshot here"
+              )}
             </div>
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {screenshotDraft ? (
+                <>
+                  <button
+                    className="h-9 rounded-md bg-[#245c4f] px-3 text-sm font-semibold text-white hover:bg-[#1d4c42] disabled:opacity-60"
+                    type="button"
+                    onClick={confirmScreenshot}
+                    disabled={isSavingScreenshot}
+                  >
+                    Confirm screenshot
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold hover:bg-[#f2eee5]"
+                    type="button"
+                    onClick={removeScreenshotDraft}
+                  >
+                    Delete screenshot
+                  </button>
+                </>
+              ) : null}
               {form.photoPath ? (
                 <a className="inline-flex items-center gap-1 text-sm text-[#245c4f]" href={form.photoPath} target="_blank">
                   <Camera size={15} />
