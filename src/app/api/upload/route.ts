@@ -1,6 +1,6 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { getErrorMessage } from "@/lib/errors";
+import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, PHOTO_BUCKET } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +31,10 @@ export async function POST(request: Request) {
       .upload(storagePath, bytes, {
         contentType: file.type,
         upsert: false,
-      });
+    });
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(storagePath);

@@ -14,6 +14,17 @@ type TimeEntry = {
   photoPath: string | null;
 };
 
+type DraftEntry = {
+  id: string;
+  startTime: string;
+  endTime: null;
+  event: string;
+  description: string | null;
+  link: string | null;
+  photoPath: string | null;
+  pending?: boolean;
+};
+
 const emptyForm = {
   event: "",
   description: "",
@@ -33,6 +44,7 @@ async function readJsonResponse<T>(response: Response): Promise<T & { message?: 
 
 export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [draftEntry, setDraftEntry] = useState<DraftEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -50,11 +62,13 @@ export default function Home() {
       }
 
       setEntries(data);
-      setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
+      if (!draftEntry) {
+        setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load entries.");
     }
-  }, []);
+  }, [draftEntry]);
 
   useEffect(() => {
     const loadEntries = window.setTimeout(() => {
@@ -68,8 +82,8 @@ export default function Home() {
   }, [fetchEntries]);
 
   const activeEntry = useMemo(
-    () => entries.find((entry) => entry.id === activeId) ?? entries.find((entry) => !entry.endTime) ?? null,
-    [activeId, entries],
+    () => draftEntry ?? entries.find((entry) => entry.id === activeId) ?? entries.find((entry) => !entry.endTime) ?? null,
+    [activeId, draftEntry, entries],
   );
 
   async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -78,15 +92,20 @@ export default function Home() {
 
     const data = new FormData();
     data.append("photo", file);
-    const response = await fetch("/api/upload", { method: "POST", body: data });
-    const result = await readJsonResponse<{ path?: string }>(response);
+    try {
+      const response = await fetch("/api/upload", { method: "POST", body: data });
+      const result = await readJsonResponse<{ path?: string }>(response);
 
-    if (!response.ok) {
-      setMessage(result.message ?? "Photo upload failed.");
-      return;
+      if (!response.ok) {
+        setMessage(`${result.message ?? "Photo upload failed."} The timer is still safe; you can add the screenshot later.`);
+        return;
+      }
+
+      setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Photo upload failed.";
+      setMessage(`${errorMessage} The timer is still safe; you can add the screenshot later.`);
     }
-
-    setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
   }
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
@@ -98,26 +117,42 @@ export default function Home() {
 
     setIsSaving(true);
     setMessage("");
+    const optimisticEntry: DraftEntry = {
+      id: `draft-${crypto.randomUUID()}`,
+      startTime: new Date().toISOString(),
+      endTime: null,
+      event: form.event.trim(),
+      description: form.description.trim() || null,
+      link: form.link.trim() || null,
+      photoPath: form.photoPath || null,
+      pending: true,
+    };
+    setDraftEntry(optimisticEntry);
+    setActiveId(optimisticEntry.id);
+
     try {
       const response = await fetch("/api/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          startTime: new Date().toISOString(),
+          startTime: optimisticEntry.startTime,
         }),
       });
       const entry = await readJsonResponse<TimeEntry>(response);
 
       if (!response.ok || !entry.id) {
+        setDraftEntry(null);
         setMessage(entry.message ?? "Could not start timer.");
         return;
       }
 
       setEntries((current) => [entry, ...current]);
       setActiveId(entry.id);
+      setDraftEntry(null);
       setForm(emptyForm);
     } catch (error) {
+      setDraftEntry(null);
       setMessage(error instanceof Error ? error.message : "Could not start timer.");
     } finally {
       setIsSaving(false);
@@ -154,7 +189,9 @@ export default function Home() {
     if (activeId === id) setActiveId(null);
   }
 
-  const totalToday = entries
+  const visibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
+
+  const totalToday = visibleEntries
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
     .reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0);
 
@@ -245,7 +282,7 @@ export default function Home() {
           <section className="overflow-hidden rounded-md border border-[#ded9cd] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#ece7dc] px-5 py-4">
               <h2 className="text-lg font-semibold">Entries</h2>
-              <p className="text-sm text-[#697066]">{entries.length} total</p>
+              <p className="text-sm text-[#697066]">{visibleEntries.length} total</p>
             </div>
 
             <div className="overflow-x-auto">
@@ -258,12 +295,17 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => (
+                  {visibleEntries.map((entry) => (
                     <tr key={entry.id} className="border-t border-[#ece7dc] align-top">
                       <td className="px-4 py-3">{formatIrishDate(entry.startTime)}</td>
                       <td className="px-4 py-3 font-mono">{formatIrishTime(entry.startTime)}</td>
                       <td className="px-4 py-3 font-mono">{entry.endTime ? formatIrishTime(entry.endTime) : "Running"}</td>
-                      <td className="px-4 py-3 font-medium">{entry.event}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {entry.event}
+                        {"pending" in entry && entry.pending ? (
+                          <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
+                        ) : null}
+                      </td>
                       <td className="max-w-xs px-4 py-3 text-[#4f554d]">{entry.description}</td>
                       <td className="px-4 py-3 font-mono">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
                       <td className="px-4 py-3">
@@ -282,7 +324,7 @@ export default function Home() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          {!entry.endTime ? (
+                          {!entry.endTime && !("pending" in entry && entry.pending) ? (
                             <button
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#245c4f] text-white"
                               onClick={() => stopTimer(entry.id)}
@@ -291,18 +333,20 @@ export default function Home() {
                               <Square size={15} />
                             </button>
                           ) : null}
-                          <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d8d2c5]"
-                            onClick={() => deleteEntry(entry.id)}
-                            title="Delete entry"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {"pending" in entry && entry.pending ? null : (
+                            <button
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d8d2c5]"
+                              onClick={() => deleteEntry(entry.id)}
+                              title="Delete entry"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))}
-                  {entries.length === 0 ? (
+                  {visibleEntries.length === 0 ? (
                     <tr>
                       <td className="px-4 py-8 text-center text-[#697066]" colSpan={9}>
                         No entries yet.
