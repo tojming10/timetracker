@@ -1,8 +1,16 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Download, ExternalLink, Play, Square, Trash2, Upload } from "lucide-react";
-import { entryDuration, formatDuration, formatIrishDate, formatIrishTime, IRISH_TIME_ZONE } from "@/lib/time";
+import { ClipboardEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Camera, Download, ExternalLink, Play, Square, Trash2 } from "lucide-react";
+import {
+  entryDuration,
+  formatDuration,
+  formatIrishDate,
+  formatIrishTime,
+  fromIrishDateTimeInput,
+  IRISH_TIME_ZONE,
+  toIrishDateTimeInput,
+} from "@/lib/time";
 
 type TimeEntry = {
   id: string;
@@ -42,6 +50,10 @@ async function readJsonResponse<T>(response: Response): Promise<T & { message?: 
   return { message: await response.text() } as T & { message?: string };
 }
 
+function isPendingEntry(entry: TimeEntry | DraftEntry) {
+  return "pending" in entry && entry.pending === true;
+}
+
 export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [draftEntry, setDraftEntry] = useState<DraftEntry | null>(null);
@@ -50,6 +62,7 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [editingTimes, setEditingTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -86,8 +99,7 @@ export default function Home() {
     [activeId, draftEntry, entries],
   );
 
-  async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadScreenshotFile(file: File) {
     if (!file) return;
 
     const data = new FormData();
@@ -102,10 +114,24 @@ export default function Home() {
       }
 
       setForm((current) => ({ ...current, photoPath: result.path ?? "" }));
+      setMessage("Screenshot pasted.");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Photo upload failed.";
       setMessage(`${errorMessage} The timer is still safe; you can add the screenshot later.`);
     }
+  }
+
+  async function pasteScreenshot(event: ClipboardEvent<HTMLDivElement>) {
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"));
+    const file = imageItem?.getAsFile();
+
+    if (!file) {
+      setMessage("No screenshot image found on the clipboard.");
+      return;
+    }
+
+    event.preventDefault();
+    await uploadScreenshotFile(file);
   }
 
   async function startTimer(event: FormEvent<HTMLFormElement>) {
@@ -174,6 +200,44 @@ export default function Home() {
 
     setEntries((current) => current.map((entry) => (entry.id === id ? updated : entry)));
     setActiveId(null);
+  }
+
+  async function updateEntryTimes(entry: TimeEntry | DraftEntry) {
+    if (isPendingEntry(entry)) return;
+
+    const values = editingTimes[entry.id];
+    if (!values?.startTime) {
+      setMessage("Start time is required.");
+      return;
+    }
+
+    const startTime = fromIrishDateTimeInput(values.startTime);
+    const endTime = values.endTime ? fromIrishDateTimeInput(values.endTime) : null;
+
+    if (endTime && new Date(endTime).getTime() < new Date(startTime).getTime()) {
+      setMessage("End time cannot be earlier than start time.");
+      return;
+    }
+
+    const response = await fetch(`/api/entries/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startTime, endTime }),
+    });
+    const updated = await readJsonResponse<TimeEntry>(response);
+
+    if (!response.ok) {
+      setMessage(updated.message ?? "Could not update times.");
+      return;
+    }
+
+    setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
+    setEditingTimes((current) => {
+      const next = { ...current };
+      delete next[entry.id];
+      return next;
+    });
+    setMessage("Times updated.");
   }
 
   async function deleteEntry(id: string) {
@@ -253,17 +317,21 @@ export default function Home() {
               placeholder="https://..."
             />
 
-            <label className="mt-4 block text-sm font-medium">Screenshot/photo</label>
+            <label className="mt-4 block text-sm font-medium">Screenshot</label>
+            <div
+              className="mt-2 flex min-h-24 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
+              onPaste={pasteScreenshot}
+              tabIndex={0}
+              role="textbox"
+              aria-label="Paste screenshot"
+            >
+              Paste a recent screenshot here
+            </div>
             <div className="mt-2 flex items-center gap-3">
-              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-[#cfc8ba] px-3 text-sm font-semibold hover:bg-[#f2eee5]">
-                <Upload size={16} />
-                Upload
-                <input className="hidden" type="file" accept="image/*" onChange={uploadPhoto} />
-              </label>
               {form.photoPath ? (
                 <a className="inline-flex items-center gap-1 text-sm text-[#245c4f]" href={form.photoPath} target="_blank">
                   <Camera size={15} />
-                  View photo
+                  View screenshot
                 </a>
               ) : null}
             </div>
@@ -277,6 +345,16 @@ export default function Home() {
               <Play size={17} />
               Start timer
             </button>
+            {activeEntry && !isPendingEntry(activeEntry) ? (
+              <button
+                type="button"
+                className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#245c4f] px-4 font-semibold text-white hover:bg-[#1d4c42]"
+                onClick={() => stopTimer(activeEntry.id)}
+              >
+                <Square size={17} />
+                Stop timer
+              </button>
+            ) : null}
           </form>
 
           <section className="overflow-hidden rounded-md border border-[#ded9cd] bg-white shadow-sm">
@@ -289,7 +367,7 @@ export default function Home() {
               <table className="w-full min-w-[980px] border-collapse text-left text-sm">
                 <thead className="bg-[#f2eee5] text-xs uppercase text-[#5f655d]">
                   <tr>
-                    {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Photo", ""].map((column) => (
+                    {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot", ""].map((column) => (
                       <th key={column} className="px-4 py-3 font-semibold">{column}</th>
                     ))}
                   </tr>
@@ -298,11 +376,47 @@ export default function Home() {
                   {visibleEntries.map((entry) => (
                     <tr key={entry.id} className="border-t border-[#ece7dc] align-top">
                       <td className="px-4 py-3">{formatIrishDate(entry.startTime)}</td>
-                      <td className="px-4 py-3 font-mono">{formatIrishTime(entry.startTime)}</td>
-                      <td className="px-4 py-3 font-mono">{entry.endTime ? formatIrishTime(entry.endTime) : "Running"}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
+                          type="datetime-local"
+                          value={editingTimes[entry.id]?.startTime ?? toIrishDateTimeInput(entry.startTime)}
+                          disabled={isPendingEntry(entry)}
+                          onChange={(event) =>
+                            setEditingTimes((current) => ({
+                              ...current,
+                              [entry.id]: {
+                                startTime: event.target.value,
+                                endTime: current[entry.id]?.endTime ?? toIrishDateTimeInput(entry.endTime),
+                              },
+                            }))
+                          }
+                        />
+                        <p className="mt-1 font-mono text-xs text-[#697066]">{formatIrishTime(entry.startTime)}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          className="h-9 w-44 rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
+                          type="datetime-local"
+                          value={editingTimes[entry.id]?.endTime ?? toIrishDateTimeInput(entry.endTime)}
+                          disabled={isPendingEntry(entry)}
+                          onChange={(event) =>
+                            setEditingTimes((current) => ({
+                              ...current,
+                              [entry.id]: {
+                                startTime: current[entry.id]?.startTime ?? toIrishDateTimeInput(entry.startTime),
+                                endTime: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <p className="mt-1 font-mono text-xs text-[#697066]">
+                          {entry.endTime ? formatIrishTime(entry.endTime) : "Running"}
+                        </p>
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         {entry.event}
-                        {"pending" in entry && entry.pending ? (
+                        {isPendingEntry(entry) ? (
                           <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
                         ) : null}
                       </td>
@@ -318,22 +432,31 @@ export default function Home() {
                       <td className="px-4 py-3">
                         {entry.photoPath ? (
                           <a className="inline-flex items-center gap-1 text-[#245c4f]" href={entry.photoPath} target="_blank">
-                            Photo <Camera size={14} />
+                            Screenshot <Camera size={14} />
                           </a>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          {!entry.endTime && !("pending" in entry && entry.pending) ? (
+                          {editingTimes[entry.id] ? (
                             <button
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#245c4f] text-white"
+                              className="h-8 rounded-md bg-[#20231f] px-3 text-xs font-semibold text-white"
+                              onClick={() => updateEntryTimes(entry)}
+                            >
+                              Save
+                            </button>
+                          ) : null}
+                          {!entry.endTime && !isPendingEntry(entry) ? (
+                            <button
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-3 text-xs font-semibold text-white"
                               onClick={() => stopTimer(entry.id)}
                               title="Stop timer"
                             >
                               <Square size={15} />
+                              Stop
                             </button>
                           ) : null}
-                          {"pending" in entry && entry.pending ? null : (
+                          {isPendingEntry(entry) ? null : (
                             <button
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d8d2c5]"
                               onClick={() => deleteEntry(entry.id)}

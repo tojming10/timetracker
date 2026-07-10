@@ -1,3 +1,5 @@
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+
 export const IRISH_TIME_ZONE = "Europe/Dublin";
 
 export function formatIrishDate(value: Date | string) {
@@ -14,9 +16,25 @@ export function formatIrishTime(value: Date | string) {
     timeZone: IRISH_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
+    hour12: true,
   }).format(new Date(value));
+}
+
+export function toIrishDateTimeInput(value: Date | string | null) {
+  if (!value) return "";
+
+  const zonedDate = toZonedTime(value, IRISH_TIME_ZONE);
+  const year = zonedDate.getFullYear();
+  const month = String(zonedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(zonedDate.getDate()).padStart(2, "0");
+  const hours = String(zonedDate.getHours()).padStart(2, "0");
+  const minutes = String(zonedDate.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+export function fromIrishDateTimeInput(value: string) {
+  return fromZonedTime(value, IRISH_TIME_ZONE).toISOString();
 }
 
 export function formatDuration(ms: number) {

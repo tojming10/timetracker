@@ -1,6 +1,6 @@
 # Time Tracker
 
-A simple Clockify-style tracker built for Irish time (`Europe/Dublin`) with task timing, notes, links, screenshot/photo uploads, and Excel export.
+A simple Clockify-style tracker built for Irish time (`Europe/Dublin`) with task timing, notes, links, pasted screenshots, and Excel export.
 
 ## Setup
 
@@ -37,4 +37,4 @@ The Excel export includes:
 - Description
 - Duration
 - Link
-- Photo
+- Screenshot

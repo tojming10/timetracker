@@ -26,11 +26,11 @@ export async function GET() {
       Description: entry.description ?? "",
       Duration: formatDuration(entryDuration(entry.start_time, entry.end_time)),
       Link: entry.link ?? "",
-      Photo: entry.photo_path ?? "",
+      Screenshot: entry.photo_path ?? "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows, {
-      header: ["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Photo"],
+      header: ["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot"],
     });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Time Entries");
