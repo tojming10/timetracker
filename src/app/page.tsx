@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Download, ExternalLink, Pencil, Play, Square, Trash2 } from "lucide-react";
+import { Camera, Download, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
   formatDuration,
@@ -33,6 +33,13 @@ type DraftEntry = {
 };
 
 const emptyForm = {
+  event: "",
+  description: "",
+  link: "",
+  photoPath: "",
+};
+
+const emptyDetailForm = {
   event: "",
   description: "",
   link: "",
@@ -74,6 +81,8 @@ export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [draftEntry, setDraftEntry] = useState<DraftEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [detailForm, setDetailForm] = useState(emptyDetailForm);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [isSaving, setIsSaving] = useState(false);
@@ -103,7 +112,6 @@ export default function Home() {
   });
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEventName, setNewEventName] = useState("");
-  const [editingScreenshotIds, setEditingScreenshotIds] = useState<Record<string, boolean>>({});
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -139,6 +147,10 @@ export default function Home() {
   const activeEntry = useMemo(
     () => draftEntry ?? entries.find((entry) => entry.id === activeId) ?? entries.find((entry) => !entry.endTime) ?? null,
     [activeId, draftEntry, entries],
+  );
+  const selectedEntry = useMemo(
+    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
   );
 
   useEffect(() => {
@@ -249,15 +261,6 @@ export default function Home() {
     });
   }
 
-  function closeEntryScreenshotEditor(entryId: string) {
-    removeEntryScreenshotDraft(entryId);
-    setEditingScreenshotIds((current) => {
-      const next = { ...current };
-      delete next[entryId];
-      return next;
-    });
-  }
-
   async function confirmEntryScreenshot(entry: TimeEntry | DraftEntry) {
     if (isPendingEntry(entry)) return;
     const draft = entryScreenshotDrafts[entry.id];
@@ -279,12 +282,10 @@ export default function Home() {
       }
 
       setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
+      if (selectedEntryId === entry.id) {
+        setDetailForm((current) => ({ ...current, photoPath: updated.photoPath ?? "" }));
+      }
       removeEntryScreenshotDraft(entry.id);
-      setEditingScreenshotIds((current) => {
-        const next = { ...current };
-        delete next[entry.id];
-        return next;
-      });
       setMessage(entry.photoPath ? "Screenshot updated." : "Screenshot attached.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not attach screenshot.");
@@ -399,23 +400,46 @@ export default function Home() {
     setMessage("Times updated.");
   }
 
-  async function updateEntryEvent(entry: TimeEntry | DraftEntry, eventName: string) {
-    if (isPendingEntry(entry)) return;
+  async function updateSelectedEntryDetails() {
+    if (!selectedEntry) return;
 
-    const response = await fetch(`/api/entries/${entry.id}`, {
+    if (entryScreenshotDrafts[selectedEntry.id]) {
+      setMessage("Confirm or delete the pasted screenshot before saving details.");
+      return;
+    }
+
+    const response = await fetch(`/api/entries/${selectedEntry.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: eventName }),
+      body: JSON.stringify({
+        event: detailForm.event,
+        description: detailForm.description,
+        link: detailForm.link,
+        photoPath: detailForm.photoPath,
+      }),
     });
     const updated = await readJsonResponse<TimeEntry>(response);
 
     if (!response.ok) {
-      setMessage(updated.message ?? "Could not update event.");
+      setMessage(updated.message ?? "Could not update entry details.");
       return;
     }
 
-    setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
-    setMessage("Event updated.");
+    setEntries((current) => current.map((entry) => (entry.id === selectedEntry.id ? updated : entry)));
+    setMessage("Entry details updated.");
+  }
+
+  function selectEntry(entry: TimeEntry | DraftEntry) {
+    if (isPendingEntry(entry)) return;
+
+    setSelectedEntryId(entry.id);
+    setDetailForm({
+      event: entry.event,
+      description: entry.description ?? "",
+      link: entry.link ?? "",
+      photoPath: entry.photoPath ?? "",
+    });
+    setIsAddingEvent(false);
   }
 
   async function deleteEntry(id: string) {
@@ -429,6 +453,10 @@ export default function Home() {
 
     setEntries((current) => current.filter((entry) => entry.id !== id));
     if (activeId === id) setActiveId(null);
+    if (selectedEntryId === id) {
+      setSelectedEntryId(null);
+      setDetailForm(emptyDetailForm);
+    }
     setDeleteTarget(null);
   }
 
@@ -447,7 +475,11 @@ export default function Home() {
     const nextOptions = cleanEventOptions([...eventOptions, nextEventName]);
     setEventOptions(nextOptions);
     window.localStorage.setItem(eventOptionsStorageKey, JSON.stringify(nextOptions));
-    setForm((current) => ({ ...current, event: nextEventName }));
+    if (selectedEntry) {
+      setDetailForm((current) => ({ ...current, event: nextEventName }));
+    } else {
+      setForm((current) => ({ ...current, event: nextEventName }));
+    }
     setNewEventName("");
     setIsAddingEvent(false);
     setMessage("Event saved.");
@@ -483,6 +515,133 @@ export default function Home() {
         </header>
 
         <section className="grid gap-5 xl:grid-cols-[340px_1fr]">
+          {selectedEntry ? (
+            <section className="rounded-md border border-[#ded9cd] bg-white p-5 shadow-sm">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Entry details</h2>
+                <button
+                  className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold hover:bg-[#f2eee5]"
+                  type="button"
+                  onClick={() => {
+                    setSelectedEntryId(null);
+                    setDetailForm(emptyDetailForm);
+                    setIsAddingEvent(false);
+                  }}
+                >
+                  New timer
+                </button>
+              </div>
+
+              <label className="block text-sm font-medium">Event</label>
+              <select
+                className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] bg-white px-3 outline-none focus:border-[#245c4f]"
+                value={detailForm.event}
+                onChange={(event) => {
+                  if (event.target.value === "__add_event__") {
+                    setIsAddingEvent(true);
+                    return;
+                  }
+                  setDetailForm({ ...detailForm, event: event.target.value });
+                }}
+              >
+                <option value="">No event</option>
+                {eventOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+                <option value="__add_event__">Add new event...</option>
+              </select>
+              {isAddingEvent ? (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    className="h-10 min-w-0 flex-1 rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#245c4f]"
+                    value={newEventName}
+                    onChange={(event) => setNewEventName(event.target.value)}
+                    placeholder="New event"
+                  />
+                  <button
+                    className="h-10 rounded-md bg-[#245c4f] px-3 text-sm font-semibold text-white hover:bg-[#1d4c42]"
+                    type="button"
+                    onClick={saveNewEventOption}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : null}
+
+              <label className="mt-4 block text-sm font-medium">Description</label>
+              <textarea
+                className="mt-2 min-h-28 w-full resize-y rounded-md border border-[#cfc8ba] px-3 py-3 outline-none focus:border-[#245c4f]"
+                value={detailForm.description}
+                onChange={(event) => setDetailForm({ ...detailForm, description: event.target.value })}
+                placeholder="Optional notes"
+              />
+
+              <label className="mt-4 block text-sm font-medium">Link</label>
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#245c4f]"
+                value={detailForm.link}
+                onChange={(event) => setDetailForm({ ...detailForm, link: event.target.value })}
+                placeholder="https://..."
+              />
+
+              <label className="mt-4 block text-sm font-medium">Screenshot</label>
+              {detailForm.photoPath ? (
+                <a className="mt-2 inline-flex items-center gap-1 text-sm text-[#245c4f]" href={detailForm.photoPath} target="_blank">
+                  <Camera size={15} />
+                  View screenshot
+                </a>
+              ) : null}
+              <div
+                className="mt-2 flex min-h-32 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
+                onPaste={(event) => pasteEntryScreenshot(event, selectedEntry.id)}
+                tabIndex={0}
+                role="textbox"
+                aria-label="Paste screenshot for selected entry"
+              >
+                {entryScreenshotDrafts[selectedEntry.id] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className="max-h-48 w-full rounded-md object-contain"
+                    src={entryScreenshotDrafts[selectedEntry.id].previewUrl}
+                    alt="Pasted screenshot preview"
+                  />
+                ) : (
+                  "Paste screenshot here"
+                )}
+              </div>
+              {entryScreenshotDrafts[selectedEntry.id] ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="h-9 rounded-md bg-[#245c4f] px-3 text-sm font-semibold text-white disabled:opacity-60"
+                    type="button"
+                    onClick={() => confirmEntryScreenshot(selectedEntry)}
+                    disabled={savingEntryScreenshotId === selectedEntry.id}
+                  >
+                    {selectedEntry.photoPath ? "Update screenshot" : "Confirm screenshot"}
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold"
+                    type="button"
+                    onClick={() => removeEntryScreenshotDraft(selectedEntry.id)}
+                  >
+                    Delete screenshot
+                  </button>
+                </div>
+              ) : null}
+
+              {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
+
+              <button
+                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#20231f] px-4 font-semibold text-white hover:bg-[#343930]"
+                type="button"
+                onClick={updateSelectedEntryDetails}
+              >
+                Save details
+              </button>
+            </section>
+          ) : (
           <form onSubmit={startTimer} className="rounded-md border border-[#ded9cd] bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
@@ -614,6 +773,7 @@ export default function Home() {
               </button>
             ) : null}
           </form>
+          )}
 
           <section className="overflow-hidden rounded-md border border-[#ded9cd] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#ece7dc] px-5 py-4">
@@ -643,7 +803,17 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {visibleEntries.map((entry) => (
-                    <tr key={entry.id} className="border-t border-[#ece7dc] align-top">
+                    <tr
+                      key={entry.id}
+                      className={`cursor-pointer border-t border-[#ece7dc] align-top hover:bg-[#fbfaf7] ${
+                        selectedEntryId === entry.id ? "bg-[#f2eee5]" : ""
+                      }`}
+                      onClick={() => {
+                        if (!isPendingEntry(entry)) {
+                          selectEntry(entry);
+                        }
+                      }}
+                    >
                       <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
                       <td className="px-2 py-3 xl:px-3">
                         <input
@@ -652,6 +822,7 @@ export default function Home() {
                           value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
                           disabled={isPendingEntry(entry)}
                           placeholder="09:30 AM"
+                          onClick={(event) => event.stopPropagation()}
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
@@ -670,6 +841,7 @@ export default function Home() {
                           value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
                           disabled={isPendingEntry(entry)}
                           placeholder={entry.endTime ? "05:00 PM" : "Running"}
+                          onClick={(event) => event.stopPropagation()}
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
@@ -682,19 +854,7 @@ export default function Home() {
                         />
                       </td>
                       <td className="break-words px-2 py-3 font-medium xl:px-3">
-                        <select
-                          className="h-9 w-full rounded-md border border-[#d8d2c5] bg-white px-2 text-xs outline-none focus:border-[#245c4f]"
-                          value={eventOptions.includes(entry.event) ? entry.event : ""}
-                          disabled={isPendingEntry(entry)}
-                          onChange={(event) => updateEntryEvent(entry, event.target.value)}
-                        >
-                          <option value="">No event</option>
-                          {eventOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
+                        {entry.event || "No event"}
                         {isPendingEntry(entry) ? (
                           <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
                         ) : null}
@@ -703,81 +863,37 @@ export default function Home() {
                       <td className="break-words px-2 py-3 font-mono xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
                       <td className="break-words px-2 py-3 xl:px-3">
                         {entry.link ? (
-                          <a className="inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]" href={entry.link} target="_blank">
-                            Open <ExternalLink size={14} />
+                          <a
+                            className="inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]"
+                            href={entry.link}
+                            target="_blank"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Open
                           </a>
                         ) : null}
                       </td>
                       <td className="px-2 py-3 xl:px-3">
-                        {isPendingEntry(entry) ? null : (
-                          <div className="w-full">
-                            {entry.photoPath ? (
-                              <div className="mb-2 flex items-center gap-2">
-                                <a className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#245c4f]" href={entry.photoPath} target="_blank">
-                                  Screenshot <Camera size={14} />
-                                </a>
-                                <button
-                                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#d8d2c5] hover:bg-[#f2eee5]"
-                                  onClick={() => setEditingScreenshotIds((current) => ({ ...current, [entry.id]: true }))}
-                                  title="Update screenshot"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                              </div>
-                            ) : null}
-                            {!entry.photoPath || editingScreenshotIds[entry.id] ? (
-                              <div
-                                className="flex min-h-20 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-2 py-3 text-center text-xs text-[#697066] outline-none focus:border-[#245c4f]"
-                                onPaste={(event) => pasteEntryScreenshot(event, entry.id)}
-                                tabIndex={0}
-                                role="textbox"
-                                aria-label="Paste screenshot for entry"
-                              >
-                                {entryScreenshotDrafts[entry.id] ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    className="max-h-28 w-full rounded-md object-contain"
-                                    src={entryScreenshotDrafts[entry.id].previewUrl}
-                                    alt="Pasted screenshot preview"
-                                  />
-                                ) : (
-                                  entry.photoPath ? "Paste replacement" : "Paste screenshot"
-                                )}
-                              </div>
-                            ) : null}
-                            {entryScreenshotDrafts[entry.id] ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <button
-                                  className="h-8 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white disabled:opacity-60"
-                                  onClick={() => confirmEntryScreenshot(entry)}
-                                  disabled={savingEntryScreenshotId === entry.id}
-                                >
-                                  {entry.photoPath ? "Update" : "Confirm"}
-                                </button>
-                                <button
-                                  className="h-8 rounded-md border border-[#d8d2c5] px-2 text-xs font-semibold"
-                                  onClick={() => removeEntryScreenshotDraft(entry.id)}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : editingScreenshotIds[entry.id] ? (
-                              <button
-                                className="mt-2 h-8 rounded-md border border-[#d8d2c5] px-2 text-xs font-semibold"
-                                onClick={() => closeEntryScreenshotEditor(entry.id)}
-                              >
-                                Cancel
-                              </button>
-                            ) : null}
-                          </div>
-                        )}
+                        {entry.photoPath ? (
+                          <a
+                            className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#245c4f]"
+                            href={entry.photoPath}
+                            target="_blank"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Screenshot <Camera size={14} />
+                          </a>
+                        ) : null}
                       </td>
                       <td className="px-2 py-3 xl:px-3">
                         <div className="flex flex-col gap-2">
                           {editingTimes[entry.id] ? (
                             <button
                               className="h-8 rounded-md bg-[#20231f] px-2 text-xs font-semibold text-white"
-                              onClick={() => updateEntryTimes(entry)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                updateEntryTimes(entry);
+                              }}
                             >
                               Save
                             </button>
@@ -785,7 +901,10 @@ export default function Home() {
                           {!entry.endTime && !isPendingEntry(entry) ? (
                             <button
                               className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white"
-                              onClick={() => stopTimer(entry.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                stopTimer(entry.id);
+                              }}
                               title="Stop timer"
                             >
                               <Square size={15} />
@@ -795,7 +914,10 @@ export default function Home() {
                           {isPendingEntry(entry) ? null : (
                             <button
                               className="inline-flex h-8 items-center justify-center rounded-md border border-[#d8d2c5]"
-                              onClick={() => setDeleteTarget(entry)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteTarget(entry);
+                              }}
                               title="Delete entry"
                             >
                               <Trash2 size={15} />
