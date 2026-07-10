@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Download, ExternalLink, Play, Square, Trash2 } from "lucide-react";
+import { Camera, Download, ExternalLink, Pencil, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
   formatDuration,
@@ -40,6 +40,9 @@ const emptyForm = {
   photoPath: "",
 };
 
+const defaultEventOptions = ["WICA 2026", "GA UK 2026", "NPA 2026"];
+const eventOptionsStorageKey = "time-tracker-event-options";
+
 type ScreenshotDraft = {
   file: File;
   previewUrl: string;
@@ -73,6 +76,26 @@ export default function Home() {
   const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
   const [savingEntryScreenshotId, setSavingEntryScreenshotId] = useState<string | null>(null);
+  const [eventOptions, setEventOptions] = useState(() => {
+    if (typeof window === "undefined") return defaultEventOptions;
+
+    const savedOptions = window.localStorage.getItem(eventOptionsStorageKey);
+    if (!savedOptions) return defaultEventOptions;
+
+    try {
+      const parsedOptions = JSON.parse(savedOptions);
+      if (Array.isArray(parsedOptions)) {
+        return Array.from(new Set([...defaultEventOptions, ...parsedOptions.filter(Boolean)]));
+      }
+    } catch {
+      return defaultEventOptions;
+    }
+
+    return defaultEventOptions;
+  });
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const [newEventName, setNewEventName] = useState("");
+  const [editingScreenshotIds, setEditingScreenshotIds] = useState<Record<string, boolean>>({});
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -85,6 +108,7 @@ export default function Home() {
       }
 
       setEntries(data);
+      setEventOptions((current) => Array.from(new Set([...current, ...data.map((entry) => entry.event).filter(Boolean)])));
       if (!draftEntry) {
         setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
       }
@@ -217,6 +241,15 @@ export default function Home() {
     });
   }
 
+  function closeEntryScreenshotEditor(entryId: string) {
+    removeEntryScreenshotDraft(entryId);
+    setEditingScreenshotIds((current) => {
+      const next = { ...current };
+      delete next[entryId];
+      return next;
+    });
+  }
+
   async function confirmEntryScreenshot(entry: TimeEntry | DraftEntry) {
     if (isPendingEntry(entry)) return;
     const draft = entryScreenshotDrafts[entry.id];
@@ -239,6 +272,11 @@ export default function Home() {
 
       setEntries((current) => current.map((currentEntry) => (currentEntry.id === entry.id ? updated : currentEntry)));
       removeEntryScreenshotDraft(entry.id);
+      setEditingScreenshotIds((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
       setMessage(entry.photoPath ? "Screenshot updated." : "Screenshot attached.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not attach screenshot.");
@@ -372,6 +410,22 @@ export default function Home() {
     setDeleteTarget(null);
   }
 
+  function saveNewEventOption() {
+    const nextEventName = newEventName.trim();
+    if (!nextEventName) {
+      setMessage("Enter an event name first.");
+      return;
+    }
+
+    const nextOptions = Array.from(new Set([...eventOptions, nextEventName]));
+    setEventOptions(nextOptions);
+    window.localStorage.setItem(eventOptionsStorageKey, JSON.stringify(nextOptions));
+    setForm((current) => ({ ...current, event: nextEventName }));
+    setNewEventName("");
+    setIsAddingEvent(false);
+    setMessage("Event saved.");
+  }
+
   const visibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
 
   const totalToday = visibleEntries
@@ -413,12 +467,42 @@ export default function Home() {
             </div>
 
             <label className="block text-sm font-medium">Event</label>
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#245c4f]"
+            <select
+              className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] bg-white px-3 outline-none focus:border-[#245c4f]"
               value={form.event}
-              onChange={(event) => setForm({ ...form, event: event.target.value })}
-              placeholder="Client call, research, writing..."
-            />
+              onChange={(event) => {
+                if (event.target.value === "__add_event__") {
+                  setIsAddingEvent(true);
+                  return;
+                }
+                setForm({ ...form, event: event.target.value });
+              }}
+            >
+              <option value="">Select event</option>
+              {eventOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+              <option value="__add_event__">Add new event...</option>
+            </select>
+            {isAddingEvent ? (
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="h-10 min-w-0 flex-1 rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#245c4f]"
+                  value={newEventName}
+                  onChange={(event) => setNewEventName(event.target.value)}
+                  placeholder="New event"
+                />
+                <button
+                  className="h-10 rounded-md bg-[#245c4f] px-3 text-sm font-semibold text-white hover:bg-[#1d4c42]"
+                  type="button"
+                  onClick={saveNewEventOption}
+                >
+                  Save
+                </button>
+              </div>
+            ) : null}
 
             <label className="mt-4 block text-sm font-medium">Description</label>
             <textarea
@@ -591,28 +675,39 @@ export default function Home() {
                         {isPendingEntry(entry) ? null : (
                           <div className="w-full">
                             {entry.photoPath ? (
-                              <a className="mb-2 inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]" href={entry.photoPath} target="_blank">
-                                Screenshot <Camera size={14} />
-                              </a>
+                              <div className="mb-2 flex items-center gap-2">
+                                <a className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#245c4f]" href={entry.photoPath} target="_blank">
+                                  Screenshot <Camera size={14} />
+                                </a>
+                                <button
+                                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#d8d2c5] hover:bg-[#f2eee5]"
+                                  onClick={() => setEditingScreenshotIds((current) => ({ ...current, [entry.id]: true }))}
+                                  title="Update screenshot"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                              </div>
                             ) : null}
-                            <div
-                              className="flex min-h-20 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-2 py-3 text-center text-xs text-[#697066] outline-none focus:border-[#245c4f]"
-                              onPaste={(event) => pasteEntryScreenshot(event, entry.id)}
-                              tabIndex={0}
-                              role="textbox"
-                              aria-label="Paste screenshot for entry"
-                            >
-                              {entryScreenshotDrafts[entry.id] ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  className="max-h-28 w-full rounded-md object-contain"
-                                  src={entryScreenshotDrafts[entry.id].previewUrl}
-                                  alt="Pasted screenshot preview"
-                                />
-                              ) : (
-                                entry.photoPath ? "Paste replacement" : "Paste screenshot"
-                              )}
-                            </div>
+                            {!entry.photoPath || editingScreenshotIds[entry.id] ? (
+                              <div
+                                className="flex min-h-20 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-2 py-3 text-center text-xs text-[#697066] outline-none focus:border-[#245c4f]"
+                                onPaste={(event) => pasteEntryScreenshot(event, entry.id)}
+                                tabIndex={0}
+                                role="textbox"
+                                aria-label="Paste screenshot for entry"
+                              >
+                                {entryScreenshotDrafts[entry.id] ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    className="max-h-28 w-full rounded-md object-contain"
+                                    src={entryScreenshotDrafts[entry.id].previewUrl}
+                                    alt="Pasted screenshot preview"
+                                  />
+                                ) : (
+                                  entry.photoPath ? "Paste replacement" : "Paste screenshot"
+                                )}
+                              </div>
+                            ) : null}
                             {entryScreenshotDrafts[entry.id] ? (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <button
@@ -629,6 +724,13 @@ export default function Home() {
                                   Delete
                                 </button>
                               </div>
+                            ) : editingScreenshotIds[entry.id] ? (
+                              <button
+                                className="mt-2 h-8 rounded-md border border-[#d8d2c5] px-2 text-xs font-semibold"
+                                onClick={() => closeEntryScreenshotEditor(entry.id)}
+                              >
+                                Cancel
+                              </button>
                             ) : null}
                           </div>
                         )}
@@ -692,7 +794,7 @@ export default function Home() {
               Delete entry?
             </h2>
             <p className="mt-2 text-sm text-[#4f554d]">
-              This will permanently delete “{deleteTarget.event}” from {formatIrishDate(deleteTarget.startTime)}.
+              This will permanently delete &quot;{deleteTarget.event}&quot; from {formatIrishDate(deleteTarget.startTime)}.
             </p>
             <div className="mt-5 flex justify-end gap-3">
               <button
