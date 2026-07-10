@@ -6,7 +6,6 @@ import {
   entryDuration,
   formatDuration,
   formatIrishDate,
-  formatIrishTime,
   fromIrishTimeInput,
   IRISH_TIME_ZONE,
   toIrishTimeInput,
@@ -621,9 +620,10 @@ export default function Home() {
                       <td className="px-2 py-3 xl:px-3">
                         <input
                           className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="time"
+                          type="text"
                           value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
                           disabled={isPendingEntry(entry)}
+                          placeholder="09:30 AM"
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
@@ -634,14 +634,14 @@ export default function Home() {
                             }))
                           }
                         />
-                        <p className="mt-1 font-mono text-xs text-[#697066]">{formatIrishTime(entry.startTime)}</p>
                       </td>
                       <td className="px-2 py-3 xl:px-3">
                         <input
                           className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="time"
+                          type="text"
                           value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
                           disabled={isPendingEntry(entry)}
+                          placeholder={entry.endTime ? "05:00 PM" : "Running"}
                           onChange={(event) =>
                             setEditingTimes((current) => ({
                               ...current,
@@ -652,9 +652,6 @@ export default function Home() {
                             }))
                           }
                         />
-                        <p className="mt-1 font-mono text-xs text-[#697066]">
-                          {entry.endTime ? formatIrishTime(entry.endTime) : "Running"}
-                        </p>
                       </td>
                       <td className="break-words px-2 py-3 font-medium xl:px-3">
                         {entry.event}
