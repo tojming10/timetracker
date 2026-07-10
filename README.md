@@ -23,8 +23,14 @@ Add the same environment variables in Vercel before deploying:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+- `GOOGLE_DRIVE_SCREENSHOT_FOLDER_ID`
 
 The service role key is used only by server API routes. Do not expose it in browser code.
+
+For Google Drive screenshot uploads, share the destination Drive folder with the service account email. The default
+folder ID is `1s_Qd4eiBOyDnPtTGfCFuWHbI385IH8ff`.
 
 ## Export Columns
 
