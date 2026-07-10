@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { getErrorMessage } from "@/lib/errors";
+import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, TimeEntryRow } from "@/lib/supabase";
 import { entryDuration, formatDuration, formatIrishDate, formatIrishTime } from "@/lib/time";
 
@@ -15,7 +15,7 @@ export async function GET() {
       .order("start_time", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     const rows = (data as TimeEntryRow[]).map((entry) => ({

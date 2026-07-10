@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage } from "@/lib/errors";
+import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, toTimeEntry, TimeEntryRow } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET() {
       .order("start_time", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     return NextResponse.json((data as TimeEntryRow[]).map(toTimeEntry));
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     return NextResponse.json(toTimeEntry(data as TimeEntryRow), { status: 201 });

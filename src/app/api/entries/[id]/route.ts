@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage } from "@/lib/errors";
+import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, toTimeEntry, TimeEntryRow } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       .single();
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     return NextResponse.json(toTimeEntry(data as TimeEntryRow));
@@ -72,7 +72,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     const { error } = await supabase.from("time_entries").delete().eq("id", id);
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
