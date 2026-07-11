@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ClipboardEvent, FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Camera, Download, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
@@ -518,21 +518,42 @@ export default function Home() {
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
     .reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0);
 
+  const groupedEntries = visibleEntries.reduce<Array<{ date: string; total: number; entries: Array<TimeEntry | DraftEntry> }>>(
+    (groups, entry) => {
+      const date = formatIrishDate(entry.startTime);
+      const lastGroup = groups.at(-1);
+
+      if (lastGroup?.date === date) {
+        lastGroup.entries.push(entry);
+        lastGroup.total += entryDuration(entry.startTime, entry.endTime);
+      } else {
+        groups.push({
+          date,
+          total: entryDuration(entry.startTime, entry.endTime),
+          entries: [entry],
+        });
+      }
+
+      return groups;
+    },
+    [],
+  );
+
   return (
-    <main className="min-h-screen bg-[#f7f6f2] text-[#20231f]">
+    <main className="min-h-screen bg-[#f4f7f6] text-[#17201c]">
       <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-3 py-5 sm:px-5 lg:px-6">
-        <header className="flex flex-col gap-3 border-b border-[#ded9cd] pb-5 md:flex-row md:items-end md:justify-between">
+        <header className="rounded-md border border-[#dfe7e2] bg-white px-5 py-4 shadow-sm md:flex md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-medium text-[#697066]">Irish time zone: {IRISH_TIME_ZONE}</p>
-            <h1 className="text-3xl font-semibold tracking-normal text-[#20231f]">Time Tracker</h1>
+            <p className="text-sm font-medium text-[#5f6f68]">Irish time zone: {IRISH_TIME_ZONE}</p>
+            <h1 className="text-3xl font-semibold tracking-normal text-[#17201c]">Time Tracker</h1>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-md border border-[#d8d2c5] bg-white px-4 py-2">
-              <p className="text-xs uppercase text-[#697066]">Today</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
+            <div className="rounded-md border border-[#dfe7e2] bg-[#f8faf9] px-4 py-2">
+              <p className="text-xs uppercase text-[#5f6f68]">Today</p>
               <p className="font-mono text-lg">{formatDuration(totalToday)}</p>
             </div>
             <a
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#245c4f] px-4 text-sm font-semibold text-white hover:bg-[#1d4c42]"
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#13866f]"
               href="/api/export"
             >
               <Download size={17} />
@@ -541,9 +562,9 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="grid gap-5 xl:grid-cols-[340px_1fr]">
+        <section className="grid gap-5 xl:grid-cols-[360px_1fr]">
           {selectedEntry ? (
-            <section className="rounded-md border border-[#ded9cd] bg-white p-5 shadow-sm">
+            <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Entry details</h2>
                 <button
@@ -669,7 +690,7 @@ export default function Home() {
               </button>
             </section>
           ) : (
-          <form onSubmit={startTimer} className="rounded-md border border-[#ded9cd] bg-white p-5 shadow-sm">
+          <form onSubmit={startTimer} className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
@@ -802,8 +823,8 @@ export default function Home() {
           </form>
           )}
 
-          <section className="overflow-hidden rounded-md border border-[#ded9cd] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#ece7dc] px-5 py-4">
+          <section className="overflow-hidden rounded-md border border-[#dfe7e2] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#e8efeb] px-5 py-4">
               <h2 className="text-lg font-semibold">Entries</h2>
               <p className="text-sm text-[#697066]">{visibleEntries.length} total</p>
             </div>
@@ -821,7 +842,7 @@ export default function Home() {
                   <col className="w-[16%]" />
                   <col className="w-[8%]" />
                 </colgroup>
-                <thead className="bg-[#f2eee5] text-xs uppercase text-[#5f655d]">
+                <thead className="bg-[#eef5f2] text-xs uppercase text-[#52645c]">
                   <tr>
                     {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot", ""].map((column) => (
                       <th key={column} className="px-2 py-3 font-semibold xl:px-3">{column}</th>
@@ -829,143 +850,158 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleEntries.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      className={`cursor-pointer border-t border-[#ece7dc] align-top hover:bg-[#fbfaf7] ${
-                        selectedEntryId === entry.id ? "bg-[#f2eee5]" : ""
-                      }`}
-                      onClick={() => {
-                        if (!isPendingEntry(entry)) {
-                          selectEntry(entry);
-                        }
-                      }}
-                    >
-                      <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
-                      <td className="px-2 py-3 xl:px-3">
-                        <input
-                          className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="text"
-                          value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
-                          disabled={isPendingEntry(entry)}
-                          placeholder="09:30 AM"
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) =>
-                            setEditingTimes((current) => ({
-                              ...current,
-                              [entry.id]: {
-                                startTime: event.target.value,
-                                endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
-                              },
-                            }))
-                          }
-                        />
-                      </td>
-                      <td className="px-2 py-3 xl:px-3">
-                        <input
-                          className="h-9 w-full rounded-md border border-[#d8d2c5] px-2 font-mono text-xs"
-                          type="text"
-                          value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
-                          disabled={isPendingEntry(entry)}
-                          placeholder={entry.endTime ? "05:00 PM" : "Running"}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) =>
-                            setEditingTimes((current) => ({
-                              ...current,
-                              [entry.id]: {
-                                startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
-                                endTime: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </td>
-                      <td className="break-words px-2 py-3 font-medium xl:px-3">
-                        {entry.event || "No event"}
-                        {isPendingEntry(entry) ? (
-                          <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
-                        ) : null}
-                      </td>
-                      <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
-                      <td className="break-words px-2 py-3 font-mono xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
-                      <td className="break-words px-2 py-3 xl:px-3">
-                        {entry.link ? (
-                          <a
-                            className="inline-flex max-w-full items-center gap-1 break-all text-[#245c4f]"
-                            href={entry.link}
-                            target="_blank"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            Open
-                          </a>
-                        ) : null}
-                      </td>
-                      <td className="px-2 py-3 xl:px-3">
-                        {entry.photoPath ? (
-                          <a
-                            className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#245c4f]"
-                            href={entry.photoPath}
-                            target="_blank"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            Screenshot <Camera size={14} />
-                          </a>
-                        ) : null}
-                      </td>
-                      <td className="px-2 py-3 xl:px-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {editingTimes[entry.id] ? (
-                            <button
-                              className="h-8 rounded-md bg-[#20231f] px-2 text-xs font-semibold text-white"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                updateEntryTimes(entry);
-                              }}
-                            >
-                              Save
-                            </button>
-                          ) : null}
-                          {!entry.endTime && !isPendingEntry(entry) ? (
-                            <button
-                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#b42318] px-2 text-xs font-semibold text-white hover:bg-[#912018]"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                stopTimer(entry.id);
-                              }}
-                              title="Stop timer"
-                            >
-                              <Square size={15} />
-                              Stop
-                            </button>
-                          ) : null}
-                          {entry.endTime && !isPendingEntry(entry) ? (
-                            <button
-                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white hover:bg-[#1d4c42]"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                continueTimer(entry);
-                              }}
-                              title="Continue timer"
-                            >
-                              <Play size={15} />
-                              Play
-                            </button>
-                          ) : null}
-                          {isPendingEntry(entry) ? null : (
-                            <button
-                              className="inline-flex h-8 items-center justify-center rounded-md border border-[#d8d2c5]"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setDeleteTarget(entry);
-                              }}
-                              title="Delete entry"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                  {groupedEntries.map((group) => (
+                    <Fragment key={group.date}>
+                      <tr className="border-t border-[#dfe7e2] bg-[#17201c] text-white">
+                        <td className="px-3 py-3 font-semibold" colSpan={5}>
+                          {group.date}
+                        </td>
+                        <td className="px-3 py-3 font-mono font-semibold" colSpan={2}>
+                          {formatDuration(group.total)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-xs text-[#c9d7d0]" colSpan={2}>
+                          {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
+                        </td>
+                      </tr>
+                      {group.entries.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className={`cursor-pointer border-t border-[#e8efeb] align-top hover:bg-[#f7fbf9] ${
+                            selectedEntryId === entry.id ? "bg-[#eaf7f3]" : ""
+                          }`}
+                          onClick={() => {
+                            if (!isPendingEntry(entry)) {
+                              selectEntry(entry);
+                            }
+                          }}
+                        >
+                          <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <input
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 font-mono text-xs"
+                              type="text"
+                              value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
+                              disabled={isPendingEntry(entry)}
+                              placeholder="09:30 AM"
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                setEditingTimes((current) => ({
+                                  ...current,
+                                  [entry.id]: {
+                                    startTime: event.target.value,
+                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <input
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 font-mono text-xs"
+                              type="text"
+                              value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
+                              disabled={isPendingEntry(entry)}
+                              placeholder={entry.endTime ? "05:00 PM" : "Running"}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                setEditingTimes((current) => ({
+                                  ...current,
+                                  [entry.id]: {
+                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
+                                    endTime: event.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
+                          <td className="break-words px-2 py-3 font-medium xl:px-3">
+                            {entry.event || "No event"}
+                            {isPendingEntry(entry) ? (
+                              <span className="ml-2 rounded-md bg-[#fff3d6] px-2 py-1 text-xs text-[#75540f]">Saving</span>
+                            ) : null}
+                          </td>
+                          <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
+                          <td className="break-words px-2 py-3 font-mono xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
+                          <td className="break-words px-2 py-3 xl:px-3">
+                            {entry.link ? (
+                              <a
+                                className="inline-flex max-w-full items-center gap-1 break-all text-[#16836f]"
+                                href={entry.link}
+                                target="_blank"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                Open
+                              </a>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            {entry.photoPath ? (
+                              <a
+                                className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#16836f]"
+                                href={entry.photoPath}
+                                target="_blank"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                Screenshot <Camera size={14} />
+                              </a>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {editingTimes[entry.id] ? (
+                                <button
+                                  className="h-8 rounded-md bg-[#17201c] px-2 text-xs font-semibold text-white"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    updateEntryTimes(entry);
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              ) : null}
+                              {!entry.endTime && !isPendingEntry(entry) ? (
+                                <button
+                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#b42318] px-2 text-xs font-semibold text-white hover:bg-[#912018]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    stopTimer(entry.id);
+                                  }}
+                                  title="Stop timer"
+                                >
+                                  <Square size={15} />
+                                  Stop
+                                </button>
+                              ) : null}
+                              {entry.endTime && !isPendingEntry(entry) ? (
+                                <button
+                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#16a085] px-2 text-xs font-semibold text-white hover:bg-[#13866f]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    continueTimer(entry);
+                                  }}
+                                  title="Continue timer"
+                                >
+                                  <Play size={15} />
+                                  Play
+                                </button>
+                              ) : null}
+                              {isPendingEntry(entry) ? null : (
+                                <button
+                                  className="inline-flex h-8 items-center justify-center rounded-md border border-[#cfdad5] bg-white hover:bg-[#f0f5f3]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setDeleteTarget(entry);
+                                  }}
+                                  title="Delete entry"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                   {visibleEntries.length === 0 ? (
                     <tr>
