@@ -852,14 +852,14 @@ export default function Home() {
                 <tbody>
                   {groupedEntries.map((group) => (
                     <Fragment key={group.date}>
-                      <tr className="border-t border-[#dfe7e2] bg-[#17201c] text-white">
+                      <tr className="border-t border-[#6fb9dc] bg-[#89CFF0] text-[#17201c]">
                         <td className="px-3 py-3 font-semibold" colSpan={5}>
                           {group.date}
                         </td>
                         <td className="px-3 py-3 font-mono font-semibold" colSpan={2}>
                           {formatDuration(group.total)}
                         </td>
-                        <td className="px-3 py-3 text-right text-xs text-[#c9d7d0]" colSpan={2}>
+                        <td className="px-3 py-3 text-right text-xs font-semibold text-[#25566d]" colSpan={2}>
                           {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
                         </td>
                       </tr>
