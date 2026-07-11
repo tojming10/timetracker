@@ -93,6 +93,9 @@ export default function Home() {
   const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
   const [savingEntryScreenshotId, setSavingEntryScreenshotId] = useState<string | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
   const [eventOptions, setEventOptions] = useState(() => {
     if (typeof window === "undefined") return defaultEventOptions;
 
@@ -512,6 +515,15 @@ export default function Home() {
     setMessage("Event saved.");
   }
 
+  function exportExcel() {
+    const params = new URLSearchParams();
+    if (exportStartDate) params.set("startDate", exportStartDate);
+    if (exportEndDate) params.set("endDate", exportEndDate);
+
+    window.location.href = `/api/export${params.toString() ? `?${params.toString()}` : ""}`;
+    setIsExportModalOpen(false);
+  }
+
   const visibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
 
   const totalToday = visibleEntries
@@ -552,13 +564,14 @@ export default function Home() {
               <p className="text-xs uppercase text-[#5f6f68]">Today</p>
               <p className="font-mono text-lg">{formatDuration(totalToday)}</p>
             </div>
-            <a
+            <button
+              type="button"
               className="inline-flex h-10 items-center gap-2 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#13866f]"
-              href="/api/export"
+              onClick={() => setIsExportModalOpen(true)}
             >
               <Download size={17} />
               Export Excel
-            </a>
+            </button>
           </div>
         </header>
 
@@ -1016,6 +1029,55 @@ export default function Home() {
           </section>
         </section>
       </div>
+
+      {isExportModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div
+            className="w-full max-w-md rounded-md border border-[#dfe7e2] bg-white p-5 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-excel-title"
+          >
+            <h2 id="export-excel-title" className="text-lg font-semibold text-[#17201c]">
+              Export date range
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                Start date
+                <input
+                  className="mt-2 h-10 w-full rounded-md border border-[#cfdad5] px-3 outline-none focus:border-[#16a085]"
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(event) => setExportStartDate(event.target.value)}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                End date
+                <input
+                  className="mt-2 h-10 w-full rounded-md border border-[#cfdad5] px-3 outline-none focus:border-[#16a085]"
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(event) => setExportEndDate(event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="h-10 rounded-md border border-[#d8d2c5] px-4 text-sm font-semibold hover:bg-[#f2f7f5]"
+                onClick={() => setIsExportModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="h-10 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white hover:bg-[#13866f]"
+                onClick={exportExcel}
+              >
+                Export
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

@@ -2,19 +2,32 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, TimeEntryRow } from "@/lib/supabase";
-import { entryDuration, formatDuration, formatIrishDate, formatIrishTime } from "@/lib/time";
+import { entryDuration, formatDuration, formatIrishDate, formatIrishTime, fromIrishDateInput } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 const headers = ["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot"];
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const startDate = url.searchParams.get("startDate");
+    const endDate = url.searchParams.get("endDate");
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from("time_entries")
       .select("*")
       .order("start_time", { ascending: true });
+
+    if (startDate) {
+      query = query.gte("start_time", fromIrishDateInput(startDate, "start"));
+    }
+
+    if (endDate) {
+      query = query.lte("start_time", fromIrishDateInput(endDate, "end"));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });

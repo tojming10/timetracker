@@ -83,6 +83,11 @@ export function fromIrishTimeInput(dateSource: Date | string, timeValue: string)
   return fromZonedTime(`${year}-${month}-${day}T${paddedHours}:${minutes}`, IRISH_TIME_ZONE).toISOString();
 }
 
+export function fromIrishDateInput(value: string, boundary: "start" | "end") {
+  const suffix = boundary === "start" ? "T00:00:00" : "T23:59:59.999";
+  return fromZonedTime(`${value}${suffix}`, IRISH_TIME_ZONE).toISOString();
+}
+
 export function formatDuration(ms: number) {
   const safeMs = Math.max(0, ms);
   const totalSeconds = Math.floor(safeMs / 1000);
