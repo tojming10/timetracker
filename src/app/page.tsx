@@ -362,6 +362,33 @@ export default function Home() {
     setActiveId(null);
   }
 
+  async function continueTimer(entry: TimeEntry | DraftEntry) {
+    if (isPendingEntry(entry)) return;
+
+    const response = await fetch("/api/entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startTime: new Date().toISOString(),
+        event: entry.event,
+        description: entry.description ?? "",
+        link: entry.link ?? "",
+        photoPath: entry.photoPath ?? "",
+      }),
+    });
+    const created = await readJsonResponse<TimeEntry>(response);
+
+    if (!response.ok || !created.id) {
+      setMessage(created.message ?? "Could not continue timer.");
+      return;
+    }
+
+    setEntries((current) => [created, ...current]);
+    setActiveId(created.id);
+    selectEntry(created);
+    setMessage("Timer continued as a new entry.");
+  }
+
   async function updateEntryTimes(entry: TimeEntry | DraftEntry) {
     if (isPendingEntry(entry)) return;
 
@@ -909,6 +936,19 @@ export default function Home() {
                             >
                               <Square size={15} />
                               Stop
+                            </button>
+                          ) : null}
+                          {entry.endTime && !isPendingEntry(entry) ? (
+                            <button
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#245c4f] px-2 text-xs font-semibold text-white hover:bg-[#1d4c42]"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                continueTimer(entry);
+                              }}
+                              title="Continue timer"
+                            >
+                              <Play size={15} />
+                              Play
                             </button>
                           ) : null}
                           {isPendingEntry(entry) ? null : (
