@@ -8,6 +8,7 @@ import {
   formatIrishDate,
   fromIrishTimeInput,
   IRISH_TIME_ZONE,
+  toIrishDateInput,
   toIrishTimeInput,
 } from "@/lib/time";
 
@@ -93,9 +94,8 @@ export default function Home() {
   const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
   const [savingEntryScreenshotId, setSavingEntryScreenshotId] = useState<string | null>(null);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportStartDate, setExportStartDate] = useState("");
-  const [exportEndDate, setExportEndDate] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   const [eventOptions, setEventOptions] = useState(() => {
     if (typeof window === "undefined") return defaultEventOptions;
 
@@ -517,14 +517,19 @@ export default function Home() {
 
   function exportExcel() {
     const params = new URLSearchParams();
-    if (exportStartDate) params.set("startDate", exportStartDate);
-    if (exportEndDate) params.set("endDate", exportEndDate);
+    if (filterStartDate) params.set("startDate", filterStartDate);
+    if (filterEndDate) params.set("endDate", filterEndDate);
 
     window.location.href = `/api/export${params.toString() ? `?${params.toString()}` : ""}`;
-    setIsExportModalOpen(false);
   }
 
-  const visibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
+  const allVisibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
+  const visibleEntries = allVisibleEntries.filter((entry) => {
+    const entryDate = toIrishDateInput(entry.startTime);
+    if (filterStartDate && entryDate < filterStartDate) return false;
+    if (filterEndDate && entryDate > filterEndDate) return false;
+    return true;
+  });
 
   const totalToday = visibleEntries
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
@@ -567,7 +572,7 @@ export default function Home() {
             <button
               type="button"
               className="inline-flex h-10 items-center gap-2 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#13866f]"
-              onClick={() => setIsExportModalOpen(true)}
+              onClick={exportExcel}
             >
               <Download size={17} />
               Export Excel
@@ -837,9 +842,43 @@ export default function Home() {
           )}
 
           <section className="overflow-hidden rounded-md border border-[#dfe7e2] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#e8efeb] px-5 py-4">
-              <h2 className="text-lg font-semibold">Entries</h2>
-              <p className="text-sm text-[#697066]">{visibleEntries.length} total</p>
+            <div className="flex flex-col gap-3 border-b border-[#e8efeb] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Entries</h2>
+                <p className="text-sm text-[#697066]">{visibleEntries.length} total</p>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-xs font-semibold uppercase text-[#52645c]">
+                  Start date
+                  <input
+                    className="mt-1 block h-9 rounded-md border border-[#cfdad5] px-3 text-sm font-normal normal-case outline-none focus:border-[#16a085]"
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(event) => setFilterStartDate(event.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-semibold uppercase text-[#52645c]">
+                  End date
+                  <input
+                    className="mt-1 block h-9 rounded-md border border-[#cfdad5] px-3 text-sm font-normal normal-case outline-none focus:border-[#16a085]"
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(event) => setFilterEndDate(event.target.value)}
+                  />
+                </label>
+                {(filterStartDate || filterEndDate) ? (
+                  <button
+                    className="h-9 rounded-md border border-[#cfdad5] px-3 text-sm font-semibold hover:bg-[#f2f7f5]"
+                    type="button"
+                    onClick={() => {
+                      setFilterStartDate("");
+                      setFilterEndDate("");
+                    }}
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div>
@@ -1029,55 +1068,6 @@ export default function Home() {
           </section>
         </section>
       </div>
-
-      {isExportModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div
-            className="w-full max-w-md rounded-md border border-[#dfe7e2] bg-white p-5 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="export-excel-title"
-          >
-            <h2 id="export-excel-title" className="text-lg font-semibold text-[#17201c]">
-              Export date range
-            </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-medium">
-                Start date
-                <input
-                  className="mt-2 h-10 w-full rounded-md border border-[#cfdad5] px-3 outline-none focus:border-[#16a085]"
-                  type="date"
-                  value={exportStartDate}
-                  onChange={(event) => setExportStartDate(event.target.value)}
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                End date
-                <input
-                  className="mt-2 h-10 w-full rounded-md border border-[#cfdad5] px-3 outline-none focus:border-[#16a085]"
-                  type="date"
-                  value={exportEndDate}
-                  onChange={(event) => setExportEndDate(event.target.value)}
-                />
-              </label>
-            </div>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                className="h-10 rounded-md border border-[#d8d2c5] px-4 text-sm font-semibold hover:bg-[#f2f7f5]"
-                onClick={() => setIsExportModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="h-10 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white hover:bg-[#13866f]"
-                onClick={exportExcel}
-              >
-                Export
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

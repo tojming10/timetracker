@@ -36,6 +36,17 @@ export function toIrishDateTimeInput(value: Date | string | null) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+export function toIrishDateInput(value: Date | string | null) {
+  if (!value) return "";
+
+  const zonedDate = toZonedTime(value, IRISH_TIME_ZONE);
+  const year = zonedDate.getFullYear();
+  const month = String(zonedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(zonedDate.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export function fromIrishDateTimeInput(value: string) {
   return fromZonedTime(value, IRISH_TIME_ZONE).toISOString();
 }
