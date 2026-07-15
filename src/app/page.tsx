@@ -568,6 +568,7 @@ export default function Home() {
   const totalToday = visibleEntries
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
     .reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0);
+  const isTimerRunning = Boolean(activeEntry && !activeEntry.endTime);
 
   const groupedEntries = visibleEntries.reduce<Array<{ date: string; total: number; entries: Array<TimeEntry | DraftEntry> }>>(
     (groups, entry) => {
@@ -599,8 +600,15 @@ export default function Home() {
             <h1 className="text-3xl font-semibold tracking-normal text-[#17201c]">Minggay&apos;s Time Tracker</h1>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
-            <div className="rounded-md border border-[#dfe7e2] bg-[#f8faf9] px-4 py-2">
-              <p className="text-xs uppercase text-[#5f6f68]">Today</p>
+            <div
+              className={`rounded-md border px-4 py-2 ${
+                isTimerRunning ? "border-[#9ce89c] bg-[#e7f8e7]" : "border-[#dfe7e2] bg-[#f8faf9]"
+              }`}
+            >
+              <p className={`flex items-center gap-2 text-xs uppercase ${isTimerRunning ? "text-[#1f6f1f]" : "text-[#5f6f68]"}`}>
+                {isTimerRunning ? <span className="h-2 w-2 rounded-full bg-[#228B22]" aria-hidden="true" /> : null}
+                Today
+              </p>
               <p className="text-lg font-semibold tabular-nums">{formatDuration(totalToday)}</p>
             </div>
             <button
