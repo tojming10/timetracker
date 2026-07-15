@@ -1092,7 +1092,7 @@ export default function Home() {
                               ) : null}
                               {!entry.endTime && !isPendingEntry(entry) ? (
                                 <button
-                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#b42318] px-2 text-xs font-semibold text-white hover:bg-[#912018]"
+                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#b42318] px-2 text-xs font-semibold text-white hover:bg-[#912018]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     stopTimer(entry.id);
@@ -1100,7 +1100,6 @@ export default function Home() {
                                   title="Stop"
                                 >
                                   <Square size={15} />
-                                  Stop
                                 </button>
                               ) : null}
                               {entry.endTime && !isPendingEntry(entry) ? (
