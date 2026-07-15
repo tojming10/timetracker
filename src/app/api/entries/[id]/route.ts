@@ -90,10 +90,25 @@ export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const supabase = getSupabase();
     const { id } = await context.params;
+
+    const { data: existingEntry, error: existingError } = await supabase
+      .from("time_entries")
+      .select("photo_path")
+      .eq("id", id)
+      .single();
+
+    if (existingError) {
+      return NextResponse.json({ message: getDatabaseErrorMessage(existingError.message) }, { status: 500 });
+    }
+
     const { error } = await supabase.from("time_entries").delete().eq("id", id);
 
     if (error) {
       return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
+    }
+
+    if (existingEntry?.photo_path) {
+      await deleteDriveFileByUrl(existingEntry.photo_path);
     }
 
     return NextResponse.json({ ok: true });

@@ -714,14 +714,14 @@ export default function Home() {
                     onClick={() => confirmEntryScreenshot(selectedEntry)}
                     disabled={savingEntryScreenshotId === selectedEntry.id}
                   >
-                    {selectedEntry.photoPath ? "Update screenshot" : "Confirm screenshot"}
+                    Confirm
                   </button>
                   <button
                     className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold"
                     type="button"
                     onClick={() => removeEntryScreenshotDraft(selectedEntry.id)}
                   >
-                    Delete screenshot
+                    Delete
                   </button>
                 </div>
               ) : isDetailScreenshotEditorOpen ? (
@@ -837,14 +837,14 @@ export default function Home() {
                     onClick={confirmScreenshot}
                     disabled={isSavingScreenshot}
                   >
-                    Confirm screenshot
+                    Confirm
                   </button>
                   <button
                     className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold hover:bg-[#f2eee5]"
                     type="button"
                     onClick={removeScreenshotDraft}
                   >
-                    Delete screenshot
+                    Delete
                   </button>
                 </>
               ) : null}
