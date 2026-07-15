@@ -146,12 +146,25 @@ export default function Home() {
       setEntries(data);
       setEventOptions((current) => cleanEventOptions([...current, ...data.map((entry) => entry.event).filter(Boolean)]));
       if (!draftEntry) {
-        setActiveId(data.find((entry: TimeEntry) => !entry.endTime)?.id ?? null);
+        const runningEntry = data.find((entry: TimeEntry) => !entry.endTime) ?? null;
+        setActiveId(runningEntry?.id ?? null);
+
+        if (runningEntry && !selectedEntryId) {
+          setSelectedEntryId(runningEntry.id);
+          setDetailForm({
+            event: runningEntry.event,
+            description: runningEntry.description ?? "",
+            link: runningEntry.link ?? "",
+            photoPath: runningEntry.photoPath ?? "",
+          });
+          setIsDetailScreenshotEditorOpen(false);
+          setIsAddingEvent(false);
+        }
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load entries.");
     }
-  }, [draftEntry]);
+  }, [draftEntry, selectedEntryId]);
 
   useEffect(() => {
     const loadEntries = window.setTimeout(() => {
