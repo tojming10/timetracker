@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         row.getCell("link").value = { text: entry.link, hyperlink: entry.link };
       }
       if (entry.photo_path) {
-        row.getCell("screenshot").value = { text: "Open screenshot", hyperlink: entry.photo_path };
+        row.getCell("screenshot").value = { text: entry.photo_path, hyperlink: entry.photo_path };
       }
     });
 
