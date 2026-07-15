@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardEvent, FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Download, Pencil, Play, Square, Trash2 } from "lucide-react";
+import { Download, Pencil, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
   formatDuration,
@@ -938,8 +938,8 @@ export default function Home() {
                   <col className="w-[18%]" />
                   <col className="w-[8%]" />
                   <col className="w-[13%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[6%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
                 </colgroup>
                 <thead className="bg-[#eef5f2] text-xs uppercase text-[#52645c]">
                   <tr>
@@ -974,7 +974,7 @@ export default function Home() {
                             }
                           }}
                         >
-                          <td className="whitespace-nowrap px-2 py-3 text-[11px] xl:px-3 xl:text-xs">{formatIrishDate(entry.startTime)}</td>
+                          <td className="whitespace-nowrap px-2 py-3 text-xs font-semibold xl:px-3 xl:text-sm">{formatIrishDate(entry.startTime)}</td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
                               className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
@@ -1044,20 +1044,26 @@ export default function Home() {
                               }
                             />
                           </td>
-                          <td className="px-2 py-3 xl:px-3">
+                          <td className="px-2 py-2 xl:px-3">
                             {entry.photoPath ? (
                               <a
-                                className="inline-flex max-w-full min-w-0 items-center gap-1 break-all text-[#16836f]"
+                                className="block"
                                 href={entry.photoPath}
                                 target="_blank"
                                 onClick={(event) => event.stopPropagation()}
+                                title="Open screenshot"
                               >
-                                Screenshot <Camera size={14} />
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  className="h-12 w-full rounded-md border border-[#cfdad5] bg-[#f8faf9] object-cover"
+                                  src={getDrivePreviewUrl(entry.photoPath)}
+                                  alt="Saved screenshot"
+                                />
                               </a>
                             ) : null}
                           </td>
                           <td className="px-2 py-3 xl:px-3">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                               {editingTimes[entry.id] ? (
                                 <button
                                   className="h-8 rounded-md bg-[#17201c] px-2 text-xs font-semibold text-white"
@@ -1084,7 +1090,7 @@ export default function Home() {
                               ) : null}
                               {entry.endTime && !isPendingEntry(entry) ? (
                                 <button
-                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-[#16a085] px-2 text-xs font-semibold text-white hover:bg-[#13866f]"
+                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#16a085] px-2 text-xs font-semibold text-white hover:bg-[#13866f]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     continueTimer(entry);
@@ -1092,19 +1098,18 @@ export default function Home() {
                                   title="Continue timer"
                                 >
                                   <Play size={15} />
-                                  Play
                                 </button>
                               ) : null}
                               {isPendingEntry(entry) ? null : (
                                 <button
-                                  className="inline-flex h-8 items-center justify-center rounded-md border border-[#cfdad5] bg-white hover:bg-[#f0f5f3]"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-[#7a1f1f] hover:bg-[#fde9e7]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setDeleteTarget(entry);
                                   }}
                                   title="Delete entry"
                                 >
-                                  <Trash2 size={15} />
+                                  <Trash2 size={18} />
                                 </button>
                               )}
                             </div>
