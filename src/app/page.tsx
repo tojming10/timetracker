@@ -85,7 +85,7 @@ function getDrivePreviewUrl(url?: string | null) {
   const idParamMatch = url.match(/[?&]id=([^&]+)/);
   const fileId = filePathMatch?.[1] ?? idParamMatch?.[1];
 
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
+  return fileId ? `/api/screenshots/${encodeURIComponent(fileId)}` : url;
 }
 
 export default function Home() {
