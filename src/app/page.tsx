@@ -56,6 +56,12 @@ type ScreenshotDraft = {
   previewUrl: string;
 };
 
+type InlineEntryEdits = {
+  startTime: string;
+  endTime: string;
+  link: string;
+};
+
 async function readJsonResponse<T>(response: Response): Promise<T & { message?: string }> {
   const contentType = response.headers.get("content-type");
 
@@ -98,7 +104,7 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [editingTimes, setEditingTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
+  const [editingTimes, setEditingTimes] = useState<Record<string, InlineEntryEdits>>({});
   const [deleteTarget, setDeleteTarget] = useState<TimeEntry | null>(null);
   const [screenshotDraft, setScreenshotDraft] = useState<ScreenshotDraft | null>(null);
   const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
@@ -404,7 +410,7 @@ export default function Home() {
     setMessage("Timer continued as a new entry.");
   }
 
-  async function updateEntryTimes(entry: TimeEntry | DraftEntry) {
+  async function updateEntryInlineFields(entry: TimeEntry | DraftEntry) {
     if (isPendingEntry(entry)) return;
 
     const values = editingTimes[entry.id];
@@ -424,7 +430,7 @@ export default function Home() {
     const response = await fetch(`/api/entries/${entry.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startTime, endTime }),
+      body: JSON.stringify({ startTime, endTime, link: values.link }),
     });
     const updated = await readJsonResponse<TimeEntry>(response);
 
@@ -439,7 +445,7 @@ export default function Home() {
       delete next[entry.id];
       return next;
     });
-    setMessage("Times updated.");
+    setMessage("Entry updated.");
   }
 
   async function updateSelectedEntryDetails() {
@@ -584,7 +590,7 @@ export default function Home() {
             </div>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#89CFF0] px-4 text-sm font-semibold text-[#17201c] shadow-sm hover:bg-[#72bfdf]"
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#2b4257] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#213447]"
               onClick={exportExcel}
             >
               <Download size={17} />
@@ -925,15 +931,15 @@ export default function Home() {
             <div>
               <table className="w-full table-fixed border-collapse text-left text-xs xl:text-sm">
                 <colgroup>
-                  <col className="w-[12%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[17%]" />
+                  <col className="w-[15%]" />
                   <col className="w-[8%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[16%]" />
                   <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[6%]" />
                 </colgroup>
                 <thead className="bg-[#eef5f2] text-xs uppercase text-[#52645c]">
                   <tr>
@@ -945,7 +951,7 @@ export default function Home() {
                 <tbody>
                   {groupedEntries.map((group) => (
                     <Fragment key={group.date}>
-                      <tr className="border-t border-[#6fb9dc] bg-[#89CFF0] text-[#17201c]">
+                      <tr className="border-t border-[#6f8fa8] bg-[#88a9c3] text-[#17201c]">
                         <td className="px-3 py-3 font-semibold" colSpan={5}>
                           {group.date}
                         </td>
@@ -968,7 +974,7 @@ export default function Home() {
                             }
                           }}
                         >
-                          <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
+                          <td className="whitespace-nowrap px-2 py-3 text-[11px] xl:px-3 xl:text-xs">{formatIrishDate(entry.startTime)}</td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
                               className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
@@ -983,6 +989,7 @@ export default function Home() {
                                   [entry.id]: {
                                     startTime: event.target.value,
                                     endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
+                                    link: current[entry.id]?.link ?? entry.link ?? "",
                                   },
                                 }))
                               }
@@ -1002,6 +1009,7 @@ export default function Home() {
                                   [entry.id]: {
                                     startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
                                     endTime: event.target.value,
+                                    link: current[entry.id]?.link ?? entry.link ?? "",
                                   },
                                 }))
                               }
@@ -1015,17 +1023,26 @@ export default function Home() {
                           </td>
                           <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
                           <td className="break-words px-2 py-3 font-medium tabular-nums xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
-                          <td className="break-words px-2 py-3 xl:px-3">
-                            {entry.link ? (
-                              <a
-                                className="inline-flex max-w-full items-center gap-1 break-all text-[#16836f]"
-                                href={entry.link}
-                                target="_blank"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                Open
-                              </a>
-                            ) : null}
+                          <td className="px-2 py-3 xl:px-3">
+                            <input
+                              className="h-9 w-full min-w-0 rounded-md border border-[#cfdad5] bg-white px-2 text-xs"
+                              type="text"
+                              value={editingTimes[entry.id]?.link ?? entry.link ?? ""}
+                              disabled={isPendingEntry(entry)}
+                              placeholder="https://..."
+                              title={editingTimes[entry.id]?.link ?? entry.link ?? ""}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                setEditingTimes((current) => ({
+                                  ...current,
+                                  [entry.id]: {
+                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
+                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
+                                    link: event.target.value,
+                                  },
+                                }))
+                              }
+                            />
                           </td>
                           <td className="px-2 py-3 xl:px-3">
                             {entry.photoPath ? (
@@ -1046,7 +1063,7 @@ export default function Home() {
                                   className="h-8 rounded-md bg-[#17201c] px-2 text-xs font-semibold text-white"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    updateEntryTimes(entry);
+                                    updateEntryInlineFields(entry);
                                   }}
                                 >
                                   Save
