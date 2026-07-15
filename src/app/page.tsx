@@ -966,7 +966,7 @@ export default function Home() {
                 <tbody>
                   {groupedEntries.map((group) => (
                     <Fragment key={group.date}>
-                      <tr className="border-t border-[#6f8fa8] bg-[#88a9c3] text-[#17201c]">
+                      <tr className="border-t border-[#cfc6b8] bg-[#d8d2c5] text-[#17201c]">
                         <td className="px-3 py-3 font-semibold" colSpan={5}>
                           {group.date}
                         </td>
