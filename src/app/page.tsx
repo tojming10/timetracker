@@ -580,7 +580,7 @@ export default function Home() {
           <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
             <div className="rounded-md border border-[#dfe7e2] bg-[#f8faf9] px-4 py-2">
               <p className="text-xs uppercase text-[#5f6f68]">Today</p>
-              <p className="font-mono text-lg">{formatDuration(totalToday)}</p>
+              <p className="text-lg font-semibold tabular-nums">{formatDuration(totalToday)}</p>
             </div>
             <button
               type="button"
@@ -741,7 +741,7 @@ export default function Home() {
                 type="button"
                 onClick={updateSelectedEntryDetails}
               >
-                Save details
+                Save
               </button>
             </section>
           ) : (
@@ -749,7 +749,7 @@ export default function Home() {
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
-                <span className="rounded-md bg-[#e3f1ec] px-3 py-1 font-mono text-sm text-[#245c4f]">
+                <span className="rounded-md bg-[#e3f1ec] px-3 py-1 text-sm font-semibold tabular-nums text-[#245c4f]">
                   {formatDuration(now - new Date(activeEntry.startTime).getTime())}
                 </span>
               ) : null}
@@ -949,7 +949,7 @@ export default function Home() {
                         <td className="px-3 py-3 font-semibold" colSpan={5}>
                           {group.date}
                         </td>
-                        <td className="px-3 py-3 font-mono font-semibold" colSpan={2}>
+                        <td className="px-3 py-3 font-semibold tabular-nums" colSpan={2}>
                           {formatDuration(group.total)}
                         </td>
                         <td className="px-3 py-3 text-right text-xs font-semibold text-[#25566d]" colSpan={2}>
@@ -971,7 +971,7 @@ export default function Home() {
                           <td className="break-words px-2 py-3 xl:px-3">{formatIrishDate(entry.startTime)}</td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
-                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 font-mono text-xs"
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
                               type="text"
                               value={editingTimes[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime)}
                               disabled={isPendingEntry(entry)}
@@ -990,7 +990,7 @@ export default function Home() {
                           </td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
-                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 font-mono text-xs"
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
                               type="text"
                               value={editingTimes[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime)}
                               disabled={isPendingEntry(entry)}
@@ -1014,7 +1014,7 @@ export default function Home() {
                             ) : null}
                           </td>
                           <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
-                          <td className="break-words px-2 py-3 font-mono xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
+                          <td className="break-words px-2 py-3 font-medium tabular-nums xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
                           <td className="break-words px-2 py-3 xl:px-3">
                             {entry.link ? (
                               <a
