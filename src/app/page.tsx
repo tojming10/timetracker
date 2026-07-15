@@ -95,6 +95,9 @@ function getDrivePreviewUrl(url?: string | null) {
 }
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [draftEntry, setDraftEntry] = useState<DraftEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -133,7 +136,40 @@ export default function Home() {
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEventName, setNewEventName] = useState("");
 
+  useEffect(() => {
+    const authCheck = window.setTimeout(() => {
+      void fetch("/api/session")
+        .then((response) => response.json() as Promise<{ authenticated?: boolean }>)
+        .then((session) => setIsAuthenticated(session.authenticated === true))
+        .catch(() => setIsAuthenticated(false));
+    }, 0);
+
+    return () => window.clearTimeout(authCheck);
+  }, []);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(loginForm),
+    });
+    const result = await readJsonResponse<{ ok?: boolean }>(response);
+
+    if (response.ok && result.ok) {
+      setLoginError("");
+      setLoginForm({ username: "", password: "" });
+      setIsAuthenticated(true);
+      return;
+    }
+
+    setLoginError(result.message ?? "Incorrect username or password.");
+  }
+
   const fetchEntries = useCallback(async () => {
+    if (!isAuthenticated) return;
+
     try {
       const response = await fetch("/api/entries");
       const data = await readJsonResponse<TimeEntry[]>(response);
@@ -164,7 +200,7 @@ export default function Home() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load entries.");
     }
-  }, [draftEntry, selectedEntryId]);
+  }, [draftEntry, isAuthenticated, selectedEntryId]);
 
   useEffect(() => {
     const loadEntries = window.setTimeout(() => {
@@ -603,6 +639,53 @@ export default function Home() {
     },
     [],
   );
+
+  if (isAuthenticated === null) {
+    return <main className="min-h-screen bg-[#f4f7f6]" />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f4f7f6] px-4 text-[#17201c]">
+        <form
+          className="w-full max-w-sm rounded-md border border-[#dfe7e2] bg-white p-6 shadow-sm"
+          onSubmit={login}
+        >
+          <p className="text-sm font-medium text-[#5f6f68]">Irish time zone: {IRISH_TIME_ZONE}</p>
+          <h1 className="mt-1 text-2xl font-semibold">Minggay&apos;s Time Tracker</h1>
+
+          <label className="mt-6 block text-sm font-medium">
+            Username
+            <input
+              className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#2b4257]"
+              value={loginForm.username}
+              onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))}
+              autoComplete="username"
+            />
+          </label>
+
+          <label className="mt-4 block text-sm font-medium">
+            Password
+            <input
+              className="mt-2 h-11 w-full rounded-md border border-[#cfc8ba] px-3 outline-none focus:border-[#2b4257]"
+              type="password"
+              value={loginForm.password}
+              onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+              autoComplete="current-password"
+            />
+          </label>
+
+          {loginError ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{loginError}</p> : null}
+
+          <button
+            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#2b4257] px-4 font-semibold text-white hover:bg-[#213447]"
+          >
+            Login
+          </button>
+        </form>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f7f6] text-[#17201c]">
