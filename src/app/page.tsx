@@ -938,7 +938,7 @@ export default function Home() {
                 <thead className="bg-[#eef5f2] text-xs uppercase text-[#52645c]">
                   <tr>
                     {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot", ""].map((column) => (
-                      <th key={column} className="px-2 py-3 font-semibold xl:px-3">{column}</th>
+                      <th key={column} className="px-2 py-3 text-center font-semibold xl:px-3">{column}</th>
                     ))}
                   </tr>
                 </thead>
