@@ -368,6 +368,7 @@ export default function Home() {
       setActiveId(entry.id);
       setDraftEntry(null);
       setForm(emptyForm);
+      selectEntry(entry);
     } catch (error) {
       setDraftEntry(null);
       setMessage(error instanceof Error ? error.message : "Could not start timer.");
