@@ -869,10 +869,10 @@ export default function Home() {
             {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
 
             <button
-              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#16a085] px-4 font-semibold text-white hover:bg-[#13866f] disabled:opacity-60"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#00cc00] px-4 font-semibold text-white hover:bg-[#00ad00] disabled:opacity-60"
               disabled={isSaving}
             >
-              <Play size={17} />
+              <Play fill="currentColor" size={17} strokeWidth={0} />
               Start
             </button>
             {activeEntry && !isPendingEntry(activeEntry) ? (
@@ -941,7 +941,7 @@ export default function Home() {
                   <col className="w-[12%]" />
                   <col className="w-[8%]" />
                 </colgroup>
-                <thead className="bg-[#eef5f2] text-xs uppercase text-[#52645c]">
+                <thead className="bg-[#2b4257] text-xs uppercase text-white">
                   <tr>
                     {["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot", ""].map((column) => (
                       <th key={column} className="px-2 py-3 text-center font-semibold xl:px-3">{column}</th>
@@ -1090,14 +1090,14 @@ export default function Home() {
                               ) : null}
                               {entry.endTime && !isPendingEntry(entry) ? (
                                 <button
-                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#16a085] px-2 text-xs font-semibold text-white hover:bg-[#13866f]"
+                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#00cc00] px-2 text-xs font-semibold text-white hover:bg-[#00ad00]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     continueTimer(entry);
                                   }}
                                   title="Continue timer"
                                 >
-                                  <Play size={15} />
+                                  <Play fill="currentColor" size={15} strokeWidth={0} />
                                 </button>
                               ) : null}
                               {isPendingEntry(entry) ? null : (
