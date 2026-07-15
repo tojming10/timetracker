@@ -771,7 +771,7 @@ export default function Home() {
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
-                <span className="rounded-md bg-[#e3f1ec] px-3 py-1 text-sm font-semibold tabular-nums text-[#245c4f]">
+                <span className="rounded-md bg-[#dff8df] px-3 py-1 text-sm font-semibold tabular-nums text-[#1f6f1f]">
                   {formatDuration(now - new Date(activeEntry.startTime).getTime())}
                 </span>
               ) : null}
@@ -981,8 +981,12 @@ export default function Home() {
                       {group.entries.map((entry) => (
                         <tr
                           key={entry.id}
-                          className={`cursor-pointer border-t border-[#e8efeb] align-top hover:bg-[#f7fbf9] ${
-                            selectedEntryId === entry.id ? "bg-[#eaf7f3]" : ""
+                          className={`cursor-pointer border-t border-[#e8efeb] align-top ${
+                            !entry.endTime
+                              ? "bg-[#e7f8e7] hover:bg-[#ddf4dd]"
+                              : selectedEntryId === entry.id
+                                ? "bg-[#eaf7f3] hover:bg-[#eaf7f3]"
+                                : "hover:bg-[#f7fbf9]"
                           }`}
                           onClick={() => {
                             if (!isPendingEntry(entry)) {
