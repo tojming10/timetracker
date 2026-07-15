@@ -57,3 +57,26 @@ export async function uploadScreenshotToDrive(file: File) {
 
   return response.data.webViewLink ?? `https://drive.google.com/file/d/${response.data.id}/view`;
 }
+
+export function getDriveFileIdFromUrl(url?: string | null) {
+  if (!url) return null;
+
+  const filePathMatch = url.match(/\/file\/d\/([^/]+)/);
+  if (filePathMatch?.[1]) return filePathMatch[1];
+
+  const idParamMatch = url.match(/[?&]id=([^&]+)/);
+  if (idParamMatch?.[1]) return idParamMatch[1];
+
+  return null;
+}
+
+export async function deleteDriveFileByUrl(url?: string | null) {
+  const fileId = getDriveFileIdFromUrl(url);
+  if (!fileId) return;
+
+  const drive = getDriveClient();
+  await drive.files.delete({
+    fileId,
+    supportsAllDrives: true,
+  });
+}

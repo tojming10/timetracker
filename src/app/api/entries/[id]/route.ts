@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
+import { deleteDriveFileByUrl } from "@/lib/google-drive";
 import { getSupabase, toTimeEntry, TimeEntryRow } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,22 @@ export async function PATCH(request: Request, context: RouteContext) {
       updates.photo_path = body.photoPath || null;
     }
 
+    let previousPhotoPath: string | null = null;
+
+    if ("photoPath" in body) {
+      const { data: existingEntry, error: existingError } = await supabase
+        .from("time_entries")
+        .select("photo_path")
+        .eq("id", id)
+        .single();
+
+      if (existingError) {
+        return NextResponse.json({ message: getDatabaseErrorMessage(existingError.message) }, { status: 500 });
+      }
+
+      previousPhotoPath = existingEntry?.photo_path ?? null;
+    }
+
     const { data, error } = await supabase
       .from("time_entries")
       .update(updates)
@@ -57,6 +74,10 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (error) {
       return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
+    }
+
+    if ("photoPath" in body && previousPhotoPath && previousPhotoPath !== updates.photo_path) {
+      await deleteDriveFileByUrl(previousPhotoPath);
     }
 
     return NextResponse.json(toTimeEntry(data as TimeEntryRow));

@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardEvent, FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Camera, Download, Play, Square, Trash2 } from "lucide-react";
+import { Camera, Download, Pencil, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
   formatDuration,
@@ -78,6 +78,16 @@ function cleanEventOptions(options: string[]) {
   return Array.from(new Set(options.map((option) => option.trim()).filter((option) => option && !isRemovedEventOption(option))));
 }
 
+function getDrivePreviewUrl(url?: string | null) {
+  if (!url) return "";
+
+  const filePathMatch = url.match(/\/file\/d\/([^/]+)/);
+  const idParamMatch = url.match(/[?&]id=([^&]+)/);
+  const fileId = filePathMatch?.[1] ?? idParamMatch?.[1];
+
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
+}
+
 export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [draftEntry, setDraftEntry] = useState<DraftEntry | null>(null);
@@ -94,6 +104,7 @@ export default function Home() {
   const [entryScreenshotDrafts, setEntryScreenshotDrafts] = useState<Record<string, ScreenshotDraft>>({});
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
   const [savingEntryScreenshotId, setSavingEntryScreenshotId] = useState<string | null>(null);
+  const [isDetailScreenshotEditorOpen, setIsDetailScreenshotEditorOpen] = useState(false);
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [eventOptions, setEventOptions] = useState(() => {
@@ -289,6 +300,7 @@ export default function Home() {
         setDetailForm((current) => ({ ...current, photoPath: updated.photoPath ?? "" }));
       }
       removeEntryScreenshotDraft(entry.id);
+      setIsDetailScreenshotEditorOpen(false);
       setMessage(entry.photoPath ? "Screenshot updated." : "Screenshot attached.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not attach screenshot.");
@@ -469,6 +481,7 @@ export default function Home() {
       link: entry.link ?? "",
       photoPath: entry.photoPath ?? "",
     });
+    setIsDetailScreenshotEditorOpen(false);
     setIsAddingEvent(false);
   }
 
@@ -654,29 +667,45 @@ export default function Home() {
 
               <label className="mt-4 block text-sm font-medium">Screenshot</label>
               {detailForm.photoPath ? (
-                <a className="mt-2 inline-flex items-center gap-1 text-sm text-[#245c4f]" href={detailForm.photoPath} target="_blank">
-                  <Camera size={15} />
-                  View screenshot
-                </a>
+                <div className="group relative mt-2 overflow-hidden rounded-md border border-[#cfdad5] bg-[#f8faf9]">
+                  <a href={detailForm.photoPath} target="_blank">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="max-h-64 w-full object-contain"
+                      src={getDrivePreviewUrl(detailForm.photoPath)}
+                      alt="Saved screenshot"
+                    />
+                  </a>
+                  <button
+                    className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/95 text-[#17201c] opacity-0 shadow-sm transition-opacity hover:bg-white group-hover:opacity-100"
+                    type="button"
+                    onClick={() => setIsDetailScreenshotEditorOpen(true)}
+                    title="Replace screenshot"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                </div>
               ) : null}
-              <div
-                className="mt-2 flex min-h-32 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
-                onPaste={(event) => pasteEntryScreenshot(event, selectedEntry.id)}
-                tabIndex={0}
-                role="textbox"
-                aria-label="Paste screenshot for selected entry"
-              >
-                {entryScreenshotDrafts[selectedEntry.id] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    className="max-h-48 w-full rounded-md object-contain"
-                    src={entryScreenshotDrafts[selectedEntry.id].previewUrl}
-                    alt="Pasted screenshot preview"
-                  />
-                ) : (
-                  "Paste screenshot here"
-                )}
-              </div>
+              {isDetailScreenshotEditorOpen || !detailForm.photoPath || entryScreenshotDrafts[selectedEntry.id] ? (
+                <div
+                  className="mt-2 flex min-h-32 cursor-text items-center justify-center rounded-md border border-dashed border-[#b9b09f] bg-[#fbfaf7] px-3 py-4 text-center text-sm text-[#697066] outline-none focus:border-[#245c4f]"
+                  onPaste={(event) => pasteEntryScreenshot(event, selectedEntry.id)}
+                  tabIndex={0}
+                  role="textbox"
+                  aria-label="Paste screenshot for selected entry"
+                >
+                  {entryScreenshotDrafts[selectedEntry.id] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      className="max-h-48 w-full rounded-md object-contain"
+                      src={entryScreenshotDrafts[selectedEntry.id].previewUrl}
+                      alt="Pasted screenshot preview"
+                    />
+                  ) : (
+                    "Paste screenshot here"
+                  )}
+                </div>
+              ) : null}
               {entryScreenshotDrafts[selectedEntry.id] ? (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -695,6 +724,14 @@ export default function Home() {
                     Delete screenshot
                   </button>
                 </div>
+              ) : isDetailScreenshotEditorOpen ? (
+                <button
+                  className="mt-2 h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold"
+                  type="button"
+                  onClick={() => setIsDetailScreenshotEditorOpen(false)}
+                >
+                  Cancel replacement
+                </button>
               ) : null}
 
               {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
@@ -812,9 +849,13 @@ export default function Home() {
                 </>
               ) : null}
               {form.photoPath ? (
-                <a className="inline-flex items-center gap-1 text-sm text-[#245c4f]" href={form.photoPath} target="_blank">
-                  <Camera size={15} />
-                  View screenshot
+                <a className="block w-full" href={form.photoPath} target="_blank">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className="max-h-48 w-full rounded-md border border-[#cfdad5] bg-[#f8faf9] object-contain"
+                    src={getDrivePreviewUrl(form.photoPath)}
+                    alt="Saved screenshot"
+                  />
                 </a>
               ) : null}
             </div>
