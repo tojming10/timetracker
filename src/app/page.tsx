@@ -896,7 +896,7 @@ export default function Home() {
                 className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#b42318] px-4 font-semibold text-white hover:bg-[#912018]"
                 onClick={() => stopTimer(activeEntry.id)}
               >
-                <Square size={17} />
+                <Square fill="currentColor" size={17} strokeWidth={0} />
                 Stop
               </button>
             ) : null}
@@ -1099,7 +1099,7 @@ export default function Home() {
                                   }}
                                   title="Stop"
                                 >
-                                  <Square size={15} />
+                                  <Square fill="currentColor" size={15} strokeWidth={0} />
                                 </button>
                               ) : null}
                               {entry.endTime && !isPendingEntry(entry) ? (
