@@ -575,7 +575,7 @@ export default function Home() {
         <header className="rounded-md border border-[#dfe7e2] bg-white px-5 py-4 shadow-sm md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-[#5f6f68]">Irish time zone: {IRISH_TIME_ZONE}</p>
-            <h1 className="text-3xl font-semibold tracking-normal text-[#17201c]">Time Tracker</h1>
+            <h1 className="text-3xl font-semibold tracking-normal text-[#17201c]">Minggay&apos;s Time Tracker</h1>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
             <div className="rounded-md border border-[#dfe7e2] bg-[#f8faf9] px-4 py-2">
@@ -584,7 +584,7 @@ export default function Home() {
             </div>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#16a085] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#13866f]"
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-[#89CFF0] px-4 text-sm font-semibold text-[#17201c] shadow-sm hover:bg-[#72bfdf]"
               onClick={exportExcel}
             >
               <Download size={17} />
@@ -863,20 +863,20 @@ export default function Home() {
             {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
 
             <button
-              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#20231f] px-4 font-semibold text-white hover:bg-[#343930] disabled:opacity-60"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#16a085] px-4 font-semibold text-white hover:bg-[#13866f] disabled:opacity-60"
               disabled={isSaving}
             >
               <Play size={17} />
-              Start timer
+              Start
             </button>
             {activeEntry && !isPendingEntry(activeEntry) ? (
               <button
                 type="button"
-                className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#245c4f] px-4 font-semibold text-white hover:bg-[#1d4c42]"
+                className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#b42318] px-4 font-semibold text-white hover:bg-[#912018]"
                 onClick={() => stopTimer(activeEntry.id)}
               >
                 <Square size={17} />
-                Stop timer
+                Stop
               </button>
             ) : null}
           </form>
@@ -1059,7 +1059,7 @@ export default function Home() {
                                     event.stopPropagation();
                                     stopTimer(entry.id);
                                   }}
-                                  title="Stop timer"
+                                  title="Stop"
                                 >
                                   <Square size={15} />
                                   Stop
