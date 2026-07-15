@@ -172,6 +172,16 @@ export default function Home() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const hasSelectedEntryChanges = useMemo(() => {
+    if (!selectedEntry) return false;
+
+    return (
+      detailForm.event !== selectedEntry.event ||
+      detailForm.description !== (selectedEntry.description ?? "") ||
+      detailForm.link !== (selectedEntry.link ?? "") ||
+      detailForm.photoPath !== (selectedEntry.photoPath ?? "")
+    );
+  }, [detailForm, selectedEntry]);
 
   useEffect(() => {
     return () => {
@@ -450,6 +460,10 @@ export default function Home() {
 
   async function updateSelectedEntryDetails() {
     if (!selectedEntry) return;
+
+    if (!hasSelectedEntryChanges) {
+      return;
+    }
 
     if (entryScreenshotDrafts[selectedEntry.id]) {
       setMessage("Confirm or delete the pasted screenshot before saving details.");
@@ -743,9 +757,10 @@ export default function Home() {
               {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
 
               <button
-                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#2563eb] px-4 font-semibold text-white hover:bg-[#1d4ed8]"
+                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-[#2563eb] px-4 font-semibold text-white hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:bg-[#c6ced8] disabled:text-[#667085]"
                 type="button"
                 onClick={updateSelectedEntryDetails}
+                disabled={!hasSelectedEntryChanges || Boolean(entryScreenshotDrafts[selectedEntry.id])}
               >
                 Save
               </button>
