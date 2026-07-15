@@ -869,7 +869,7 @@ export default function Home() {
             {message ? <p className="mt-4 rounded-md bg-[#fff3d6] px-3 py-2 text-sm text-[#75540f]">{message}</p> : null}
 
             <button
-              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#00cc00] px-4 font-semibold text-white hover:bg-[#00ad00] disabled:opacity-60"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#228B22] px-4 font-semibold text-white hover:bg-[#1c741c] disabled:opacity-60"
               disabled={isSaving}
             >
               <Play fill="currentColor" size={17} strokeWidth={0} />
@@ -1090,7 +1090,7 @@ export default function Home() {
                               ) : null}
                               {entry.endTime && !isPendingEntry(entry) ? (
                                 <button
-                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#00cc00] px-2 text-xs font-semibold text-white hover:bg-[#00ad00]"
+                                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#228B22] px-2 text-xs font-semibold text-white hover:bg-[#1c741c]"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     continueTimer(entry);
