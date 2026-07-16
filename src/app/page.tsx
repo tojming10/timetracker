@@ -6,6 +6,7 @@ import {
   entryDuration,
   formatDuration,
   formatIrishDate,
+  fromIrishDateInput,
   fromIrishTimeInput,
   IRISH_TIME_ZONE,
   toIrishDateInput,
@@ -93,6 +94,20 @@ function getDrivePreviewUrl(url?: string | null) {
   const fileId = filePathMatch?.[1] ?? idParamMatch?.[1];
 
   return fileId ? `/api/screenshots/${encodeURIComponent(fileId)}` : url;
+}
+
+function getDateInputDayDifference(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00Z`).getTime();
+  const end = new Date(`${endDate}T00:00:00Z`).getTime();
+
+  return Math.round((end - start) / 86_400_000);
+}
+
+function addDaysToDateInput(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
 }
 
 export default function Home() {
@@ -485,9 +500,12 @@ export default function Home() {
       return;
     }
 
-    const dateSource = `${values.date}T00:00:00`;
-    const startTime = fromIrishTimeInput(dateSource, values.startTime);
-    const endTime = values.endTime ? fromIrishTimeInput(dateSource, values.endTime) : null;
+    const originalStartDate = toIrishDateInput(entry.startTime);
+    const originalEndDate = entry.endTime ? toIrishDateInput(entry.endTime) : originalStartDate;
+    const endDateOffset = getDateInputDayDifference(originalStartDate, originalEndDate);
+    const updatedEndDate = addDaysToDateInput(values.date, endDateOffset);
+    const startTime = fromIrishTimeInput(fromIrishDateInput(values.date, "start"), values.startTime);
+    const endTime = values.endTime ? fromIrishTimeInput(fromIrishDateInput(updatedEndDate, "start"), values.endTime) : null;
 
     if (endTime && new Date(endTime).getTime() < new Date(startTime).getTime()) {
       setMessage("End time cannot be earlier than start time.");
