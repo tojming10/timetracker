@@ -614,12 +614,14 @@ export default function Home() {
   }
 
   const allVisibleEntries = draftEntry ? [draftEntry, ...entries] : entries;
-  const visibleEntries = allVisibleEntries.filter((entry) => {
-    const entryDate = toIrishDateInput(entry.startTime);
-    if (filterStartDate && entryDate < filterStartDate) return false;
-    if (filterEndDate && entryDate > filterEndDate) return false;
-    return true;
-  });
+  const visibleEntries = allVisibleEntries
+    .filter((entry) => {
+      const entryDate = toIrishDateInput(entry.startTime);
+      if (filterStartDate && entryDate < filterStartDate) return false;
+      if (filterEndDate && entryDate > filterEndDate) return false;
+      return true;
+    })
+    .toSorted((firstEntry, secondEntry) => new Date(secondEntry.startTime).getTime() - new Date(firstEntry.startTime).getTime());
 
   const totalToday = visibleEntries
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
