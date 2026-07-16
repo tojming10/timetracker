@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 
 const headers = ["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot"];
 
+function getExportFilename(startDate: string | null, endDate: string | null) {
+  const dateRange = startDate || endDate ? `${startDate ?? "Start"} - ${endDate ?? "End"}` : "All Dates";
+  return `BR Tracker (${dateRange}).xlsx`;
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -123,11 +128,12 @@ export async function GET(request: Request) {
     worksheet.getColumn("endTime").alignment = { horizontal: "center", vertical: "top" };
 
     const buffer = await workbook.xlsx.writeBuffer();
+    const filename = getExportFilename(startDate, endDate);
 
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": 'attachment; filename="irish-time-tracker.xlsx"',
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {
