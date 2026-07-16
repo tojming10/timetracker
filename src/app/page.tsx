@@ -57,6 +57,7 @@ type ScreenshotDraft = {
 };
 
 type InlineEntryEdits = {
+  date: string;
   startTime: string;
   endTime: string;
   link: string;
@@ -474,13 +475,19 @@ export default function Home() {
     if (isPendingEntry(entry)) return;
 
     const values = editingTimes[entry.id];
+    if (!values?.date) {
+      setMessage("Date is required.");
+      return;
+    }
+
     if (!values?.startTime) {
       setMessage("Start time is required.");
       return;
     }
 
-    const startTime = fromIrishTimeInput(entry.startTime, values.startTime);
-    const endTime = values.endTime ? fromIrishTimeInput(entry.startTime, values.endTime) : null;
+    const dateSource = `${values.date}T00:00:00`;
+    const startTime = fromIrishTimeInput(dateSource, values.startTime);
+    const endTime = values.endTime ? fromIrishTimeInput(dateSource, values.endTime) : null;
 
     if (endTime && new Date(endTime).getTime() < new Date(startTime).getTime()) {
       setMessage("End time cannot be earlier than start time.");
@@ -1098,7 +1105,26 @@ export default function Home() {
                             }
                           }}
                         >
-                          <td className="whitespace-nowrap px-2 py-3 text-xs font-semibold xl:px-3 xl:text-sm">{formatIrishDate(entry.startTime)}</td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <input
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-semibold"
+                              type="date"
+                              value={editingTimes[entry.id]?.date ?? toIrishDateInput(entry.startTime)}
+                              disabled={isPendingEntry(entry)}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                setEditingTimes((current) => ({
+                                  ...current,
+                                  [entry.id]: {
+                                    date: event.target.value,
+                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
+                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
+                                    link: current[entry.id]?.link ?? entry.link ?? "",
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
                               className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
@@ -1111,6 +1137,7 @@ export default function Home() {
                                 setEditingTimes((current) => ({
                                   ...current,
                                   [entry.id]: {
+                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
                                     startTime: event.target.value,
                                     endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
                                     link: current[entry.id]?.link ?? entry.link ?? "",
@@ -1131,6 +1158,7 @@ export default function Home() {
                                 setEditingTimes((current) => ({
                                   ...current,
                                   [entry.id]: {
+                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
                                     startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
                                     endTime: event.target.value,
                                     link: current[entry.id]?.link ?? entry.link ?? "",
@@ -1160,6 +1188,7 @@ export default function Home() {
                                 setEditingTimes((current) => ({
                                   ...current,
                                   [entry.id]: {
+                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
                                     startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
                                     endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
                                     link: event.target.value,
