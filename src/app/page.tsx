@@ -50,6 +50,7 @@ const emptyDetailForm = {
 
 const defaultEventOptions = ["WICA 2026", "GA UK 2026", "NPA 2026"];
 const eventOptionsStorageKey = "time-tracker-event-options";
+const removedEventOptionsStorageKey = "time-tracker-removed-event-options";
 const removedEventOptions = ["video proofing"];
 
 type ScreenshotDraft = {
@@ -78,12 +79,15 @@ function isPendingEntry(entry: TimeEntry | DraftEntry) {
   return "pending" in entry && entry.pending === true;
 }
 
-function isRemovedEventOption(value: string) {
-  return removedEventOptions.includes(value.trim().toLowerCase());
+function isRemovedEventOption(value: string, customRemovedOptions: string[] = []) {
+  const normalizedValue = value.trim().toLowerCase();
+  return [...removedEventOptions, ...customRemovedOptions.map((option) => option.trim().toLowerCase())].includes(normalizedValue);
 }
 
-function cleanEventOptions(options: string[]) {
-  return Array.from(new Set(options.map((option) => option.trim()).filter((option) => option && !isRemovedEventOption(option))));
+function cleanEventOptions(options: string[], customRemovedOptions: string[] = []) {
+  return Array.from(
+    new Set(options.map((option) => option.trim()).filter((option) => option && !isRemovedEventOption(option, customRemovedOptions))),
+  );
 }
 
 function getDrivePreviewUrl(url?: string | null) {
@@ -132,22 +136,44 @@ export default function Home() {
   const [isDetailScreenshotEditorOpen, setIsDetailScreenshotEditorOpen] = useState(false);
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [removedCustomEventOptions, setRemovedCustomEventOptions] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    const savedOptions = window.localStorage.getItem(removedEventOptionsStorageKey);
+    if (!savedOptions) return [];
+
+    try {
+      const parsedOptions = JSON.parse(savedOptions);
+      return Array.isArray(parsedOptions) ? parsedOptions.filter((option) => typeof option === "string") : [];
+    } catch {
+      return [];
+    }
+  });
   const [eventOptions, setEventOptions] = useState(() => {
     if (typeof window === "undefined") return defaultEventOptions;
 
+    const savedRemovedOptions = window.localStorage.getItem(removedEventOptionsStorageKey);
+    let customRemovedOptions: string[] = [];
+    try {
+      const parsedRemovedOptions = savedRemovedOptions ? JSON.parse(savedRemovedOptions) : [];
+      customRemovedOptions = Array.isArray(parsedRemovedOptions) ? parsedRemovedOptions.filter((option) => typeof option === "string") : [];
+    } catch {
+      customRemovedOptions = [];
+    }
+
     const savedOptions = window.localStorage.getItem(eventOptionsStorageKey);
-    if (!savedOptions) return defaultEventOptions;
+    if (!savedOptions) return cleanEventOptions(defaultEventOptions, customRemovedOptions);
 
     try {
       const parsedOptions = JSON.parse(savedOptions);
       if (Array.isArray(parsedOptions)) {
-        return cleanEventOptions([...defaultEventOptions, ...parsedOptions.filter(Boolean)]);
+        return cleanEventOptions([...defaultEventOptions, ...parsedOptions.filter(Boolean)], customRemovedOptions);
       }
     } catch {
-      return defaultEventOptions;
+      return cleanEventOptions(defaultEventOptions, customRemovedOptions);
     }
 
-    return defaultEventOptions;
+    return cleanEventOptions(defaultEventOptions, customRemovedOptions);
   });
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [newEventName, setNewEventName] = useState("");
@@ -196,7 +222,7 @@ export default function Home() {
       }
 
       setEntries(data);
-      setEventOptions((current) => cleanEventOptions([...current, ...data.map((entry) => entry.event).filter(Boolean)]));
+      setEventOptions((current) => cleanEventOptions([...current, ...data.map((entry) => entry.event).filter(Boolean)], removedCustomEventOptions));
       if (!draftEntry) {
         const runningEntry = data.find((entry: TimeEntry) => !entry.endTime) ?? null;
         setActiveId(runningEntry?.id ?? null);
@@ -216,7 +242,7 @@ export default function Home() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load entries.");
     }
-  }, [draftEntry, isAuthenticated, selectedEntryId]);
+  }, [draftEntry, isAuthenticated, removedCustomEventOptions, selectedEntryId]);
 
   useEffect(() => {
     const loadEntries = window.setTimeout(() => {
@@ -605,12 +631,12 @@ export default function Home() {
       return;
     }
 
-    if (isRemovedEventOption(nextEventName)) {
+    if (isRemovedEventOption(nextEventName, removedCustomEventOptions)) {
       setMessage("That event option has been removed.");
       return;
     }
 
-    const nextOptions = cleanEventOptions([...eventOptions, nextEventName]);
+    const nextOptions = cleanEventOptions([...eventOptions, nextEventName], removedCustomEventOptions);
     setEventOptions(nextOptions);
     window.localStorage.setItem(eventOptionsStorageKey, JSON.stringify(nextOptions));
     if (selectedEntry) {
@@ -621,6 +647,28 @@ export default function Home() {
     setNewEventName("");
     setIsAddingEvent(false);
     setMessage("Event saved.");
+  }
+
+  function deleteEventOption(option: string) {
+    const eventName = option.trim();
+    if (!eventName) return;
+
+    const nextRemovedOptions = cleanEventOptions([...removedCustomEventOptions, eventName]);
+    const nextOptions = eventOptions.filter((currentOption) => currentOption.toLowerCase() !== eventName.toLowerCase());
+
+    setRemovedCustomEventOptions(nextRemovedOptions);
+    setEventOptions(nextOptions);
+    window.localStorage.setItem(removedEventOptionsStorageKey, JSON.stringify(nextRemovedOptions));
+    window.localStorage.setItem(eventOptionsStorageKey, JSON.stringify(nextOptions));
+
+    if (detailForm.event.toLowerCase() === eventName.toLowerCase()) {
+      setDetailForm((current) => ({ ...current, event: "" }));
+    }
+    if (form.event.toLowerCase() === eventName.toLowerCase()) {
+      setForm((current) => ({ ...current, event: "" }));
+    }
+
+    setMessage("Event option deleted.");
   }
 
   function exportExcel() {
@@ -783,6 +831,15 @@ export default function Home() {
                 ))}
                 <option value="__add_event__">Add new event...</option>
               </select>
+              {detailForm.event ? (
+                <button
+                  className="mt-2 h-8 rounded-md border border-[#d8d2c5] px-3 text-xs font-semibold text-[#7a1f1f] hover:bg-[#fde9e7]"
+                  type="button"
+                  onClick={() => deleteEventOption(detailForm.event)}
+                >
+                  Delete selected event
+                </button>
+              ) : null}
               {isAddingEvent ? (
                 <div className="mt-2 flex gap-2">
                   <input
@@ -928,6 +985,15 @@ export default function Home() {
               ))}
               <option value="__add_event__">Add new event...</option>
             </select>
+            {form.event ? (
+              <button
+                className="mt-2 h-8 rounded-md border border-[#d8d2c5] px-3 text-xs font-semibold text-[#7a1f1f] hover:bg-[#fde9e7]"
+                type="button"
+                onClick={() => deleteEventOption(form.event)}
+              >
+                Delete selected event
+              </button>
+            ) : null}
             {isAddingEvent ? (
               <div className="mt-2 flex gap-2">
                 <input

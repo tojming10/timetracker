@@ -77,7 +77,11 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if ("photoPath" in body && previousPhotoPath && previousPhotoPath !== updates.photo_path) {
-      await deleteDriveFileByUrl(previousPhotoPath);
+      try {
+        await deleteDriveFileByUrl(previousPhotoPath);
+      } catch (deleteError) {
+        console.error("Could not delete replaced screenshot from Google Drive.", deleteError);
+      }
     }
 
     return NextResponse.json(toTimeEntry(data as TimeEntryRow));
@@ -108,7 +112,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     if (existingEntry?.photo_path) {
-      await deleteDriveFileByUrl(existingEntry.photo_path);
+      try {
+        await deleteDriveFileByUrl(existingEntry.photo_path);
+      } catch (deleteError) {
+        console.error("Could not delete entry screenshot from Google Drive.", deleteError);
+      }
     }
 
     return NextResponse.json({ ok: true });

@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getDatabaseErrorMessage, getErrorMessage } from "@/lib/errors";
 import { getSupabase, TimeEntryRow } from "@/lib/supabase";
-import { entryDuration, formatDuration, formatIrishDate, formatIrishTime, fromIrishDateInput } from "@/lib/time";
+import { entryDuration, formatIrishDate, formatIrishTime, fromIrishDateInput } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 const headers = ["Date", "Start Time", "End Time", "Event", "Description", "Duration", "Link", "Screenshot"];
+
+function getDurationMinutes(startTime: Date | string, endTime?: Date | string | null) {
+  return Math.round(entryDuration(startTime, endTime) / 60_000);
+}
 
 function getExportFilename(startDate: string | null, endDate: string | null) {
   const dateRange = startDate || endDate ? `${startDate ?? "Start"} - ${endDate ?? "End"}` : "All Dates";
@@ -84,7 +88,7 @@ export async function GET(request: Request) {
         endTime: entry.end_time ? formatIrishTime(entry.end_time) : "",
         event: entry.event,
         description: entry.description ?? "",
-        duration: formatDuration(entryDuration(entry.start_time, entry.end_time)),
+        duration: getDurationMinutes(entry.start_time, entry.end_time),
         link: entry.link ?? "",
         screenshot: entry.photo_path ?? "",
       });

@@ -35,7 +35,7 @@ export function getDriveClient() {
 export async function uploadScreenshotToDrive(file: File) {
   const drive = getDriveClient();
   const extension = file.name.includes(".") ? file.name.split(".").pop() : "png";
-  const filename = `${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}.${extension}`;
+  const filename = `screenshot-${crypto.randomUUID()}.${extension}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const response = await drive.files.create({
