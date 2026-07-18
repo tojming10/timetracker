@@ -693,6 +693,7 @@ export default function Home() {
     .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
     .reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0);
   const isTimerRunning = Boolean(activeEntry && !activeEntry.endTime);
+  const isSelectedEntryRunning = Boolean(selectedEntry && !selectedEntry.endTime);
 
   const groupedEntries = visibleEntries.reduce<Array<{ date: string; total: number; entries: Array<TimeEntry | DraftEntry> }>>(
     (groups, entry) => {
@@ -797,7 +798,15 @@ export default function Home() {
           {selectedEntry ? (
             <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Entry details</h2>
+                <div>
+                  <h2 className="text-lg font-semibold">Entry details</h2>
+                  {isSelectedEntryRunning ? (
+                    <p className="mt-1 inline-flex items-center gap-2 rounded-md bg-[#e7f8e7] px-2 py-1 text-xs font-semibold uppercase text-[#1f6f1f]">
+                      <span className="h-2 w-2 rounded-full bg-[#228B22]" aria-hidden="true" />
+                      Running
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   className="h-9 rounded-md border border-[#d8d2c5] px-3 text-sm font-semibold hover:bg-[#f2eee5]"
                   type="button"
