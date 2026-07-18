@@ -804,6 +804,7 @@ export default function Home() {
                     <p className="mt-1 inline-flex items-center gap-2 rounded-md bg-[#e7f8e7] px-2 py-1 text-xs font-semibold uppercase text-[#1f6f1f]">
                       <span className="h-2 w-2 rounded-full bg-[#228B22]" aria-hidden="true" />
                       Running
+                      <span className="font-semibold tabular-nums">{formatDuration(now - new Date(selectedEntry.startTime).getTime())}</span>
                     </p>
                   ) : null}
                 </div>
