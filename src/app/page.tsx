@@ -62,6 +62,7 @@ type InlineEntryEdits = {
   date: string;
   startTime: string;
   endTime: string;
+  duration: string;
   link: string;
 };
 
@@ -112,6 +113,50 @@ function addDaysToDateInput(dateValue: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+function parseDurationInput(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return null;
+
+  if (/^\d+$/.test(trimmedValue)) {
+    return Number(trimmedValue) * 60_000;
+  }
+
+  const parts = trimmedValue.split(":");
+  if (parts.length === 2 || parts.length === 3) {
+    const numbers = parts.map((part) => Number(part));
+    if (numbers.some((part) => !Number.isInteger(part) || part < 0)) return null;
+
+    const [hours, minutes, seconds = 0] = numbers;
+    if (minutes > 59 || seconds > 59) return null;
+
+    return ((hours * 60 + minutes) * 60 + seconds) * 1000;
+  }
+
+  return null;
+}
+
+function getEntryEditDefaults(entry: TimeEntry | DraftEntry): InlineEntryEdits {
+  return {
+    date: toIrishDateInput(entry.startTime),
+    startTime: toIrishTimeInput(entry.startTime),
+    endTime: toIrishTimeInput(entry.endTime),
+    duration: formatDuration(entryDuration(entry.startTime, entry.endTime)),
+    link: entry.link ?? "",
+  };
+}
+
+function getEndTimeForDuration(date: string, startTime: string, duration: string, fallbackEndTime: string) {
+  const durationMs = parseDurationInput(duration);
+  if (durationMs === null) return fallbackEndTime;
+
+  try {
+    const startTimeIso = fromIrishTimeInput(fromIrishDateInput(date, "start"), startTime);
+    return toIrishTimeInput(new Date(new Date(startTimeIso).getTime() + durationMs));
+  } catch {
+    return fallbackEndTime;
+  }
 }
 
 export default function Home() {
@@ -531,7 +576,19 @@ export default function Home() {
     const endDateOffset = getDateInputDayDifference(originalStartDate, originalEndDate);
     const updatedEndDate = addDaysToDateInput(values.date, endDateOffset);
     const startTime = fromIrishTimeInput(fromIrishDateInput(values.date, "start"), values.startTime);
-    const endTime = values.endTime ? fromIrishTimeInput(fromIrishDateInput(updatedEndDate, "start"), values.endTime) : null;
+    const durationMs = values.duration ? parseDurationInput(values.duration) : null;
+
+    if (values.duration && durationMs === null) {
+      setMessage("Use duration as minutes, H:MM, or HH:MM:SS.");
+      return;
+    }
+
+    const endTime =
+      durationMs !== null
+        ? new Date(new Date(startTime).getTime() + durationMs).toISOString()
+        : values.endTime
+          ? fromIrishTimeInput(fromIrishDateInput(updatedEndDate, "start"), values.endTime)
+          : null;
 
     if (endTime && new Date(endTime).getTime() < new Date(startTime).getTime()) {
       setMessage("End time cannot be earlier than start time.");
@@ -1209,15 +1266,21 @@ export default function Home() {
                               disabled={isPendingEntry(entry)}
                               onClick={(event) => event.stopPropagation()}
                               onChange={(event) =>
-                                setEditingTimes((current) => ({
-                                  ...current,
-                                  [entry.id]: {
+                                setEditingTimes((current) => {
+                                  const nextEdit = {
+                                    ...getEntryEditDefaults(entry),
+                                    ...current[entry.id],
                                     date: event.target.value,
-                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
-                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
-                                    link: current[entry.id]?.link ?? entry.link ?? "",
-                                  },
-                                }))
+                                  };
+
+                                  return {
+                                    ...current,
+                                    [entry.id]: {
+                                      ...nextEdit,
+                                      endTime: getEndTimeForDuration(nextEdit.date, nextEdit.startTime, nextEdit.duration, nextEdit.endTime),
+                                    },
+                                  };
+                                })
                               }
                             />
                           </td>
@@ -1230,15 +1293,21 @@ export default function Home() {
                               placeholder="09:30 AM"
                               onClick={(event) => event.stopPropagation()}
                               onChange={(event) =>
-                                setEditingTimes((current) => ({
-                                  ...current,
-                                  [entry.id]: {
-                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
+                                setEditingTimes((current) => {
+                                  const nextEdit = {
+                                    ...getEntryEditDefaults(entry),
+                                    ...current[entry.id],
                                     startTime: event.target.value,
-                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
-                                    link: current[entry.id]?.link ?? entry.link ?? "",
-                                  },
-                                }))
+                                  };
+
+                                  return {
+                                    ...current,
+                                    [entry.id]: {
+                                      ...nextEdit,
+                                      endTime: getEndTimeForDuration(nextEdit.date, nextEdit.startTime, nextEdit.duration, nextEdit.endTime),
+                                    },
+                                  };
+                                })
                               }
                             />
                           </td>
@@ -1254,10 +1323,10 @@ export default function Home() {
                                 setEditingTimes((current) => ({
                                   ...current,
                                   [entry.id]: {
-                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
-                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
+                                    ...getEntryEditDefaults(entry),
+                                    ...current[entry.id],
                                     endTime: event.target.value,
-                                    link: current[entry.id]?.link ?? entry.link ?? "",
+                                    duration: "",
                                   },
                                 }))
                               }
@@ -1270,7 +1339,44 @@ export default function Home() {
                             ) : null}
                           </td>
                           <td className="break-words px-2 py-3 text-[#4f554d] xl:px-3">{entry.description}</td>
-                          <td className="break-words px-2 py-3 font-medium tabular-nums xl:px-3">{formatDuration(entryDuration(entry.startTime, entry.endTime))}</td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <input
+                              className="h-9 w-full rounded-md border border-[#cfdad5] bg-white px-2 text-xs font-medium tabular-nums"
+                              type="text"
+                              value={editingTimes[entry.id]?.duration ?? formatDuration(entryDuration(entry.startTime, entry.endTime))}
+                              disabled={isPendingEntry(entry)}
+                              placeholder="90 or 01:30:00"
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) => {
+                                const nextDuration = event.target.value;
+                                const currentEdit = editingTimes[entry.id] ?? getEntryEditDefaults(entry);
+                                const durationMs = parseDurationInput(nextDuration);
+                                let nextEndTime = currentEdit.endTime;
+
+                                if (durationMs !== null) {
+                                  try {
+                                    const startTime = fromIrishTimeInput(
+                                      fromIrishDateInput(currentEdit.date, "start"),
+                                      currentEdit.startTime,
+                                    );
+                                    nextEndTime = toIrishTimeInput(new Date(new Date(startTime).getTime() + durationMs));
+                                  } catch {
+                                    nextEndTime = currentEdit.endTime;
+                                  }
+                                }
+
+                                setEditingTimes((current) => ({
+                                  ...current,
+                                  [entry.id]: {
+                                    ...getEntryEditDefaults(entry),
+                                    ...current[entry.id],
+                                    duration: nextDuration,
+                                    endTime: nextEndTime,
+                                  },
+                                }));
+                              }}
+                            />
+                          </td>
                           <td className="px-2 py-3 xl:px-3">
                             <input
                               className="h-9 w-full min-w-0 rounded-md border border-[#cfdad5] bg-white px-2 text-xs"
@@ -1284,9 +1390,8 @@ export default function Home() {
                                 setEditingTimes((current) => ({
                                   ...current,
                                   [entry.id]: {
-                                    date: current[entry.id]?.date ?? toIrishDateInput(entry.startTime),
-                                    startTime: current[entry.id]?.startTime ?? toIrishTimeInput(entry.startTime),
-                                    endTime: current[entry.id]?.endTime ?? toIrishTimeInput(entry.endTime),
+                                    ...getEntryEditDefaults(entry),
+                                    ...current[entry.id],
                                     link: event.target.value,
                                   },
                                 }))
