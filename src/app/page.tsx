@@ -159,6 +159,31 @@ function getEndTimeForDuration(date: string, startTime: string, duration: string
   }
 }
 
+function useTicker(shouldTick: boolean) {
+  const [timestamp, setTimestamp] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!shouldTick) return;
+
+    const ticker = window.setInterval(() => setTimestamp(Date.now()), 1000);
+    return () => window.clearInterval(ticker);
+  }, [shouldTick]);
+
+  return timestamp;
+}
+
+function RunningDuration({ startTime }: { startTime: string }) {
+  const timestamp = useTicker(true);
+  return formatDuration(timestamp - new Date(startTime).getTime());
+}
+
+function TotalDuration({ entries }: { entries: Array<TimeEntry | DraftEntry> }) {
+  const hasRunningEntry = entries.some((entry) => !entry.endTime);
+  useTicker(hasRunningEntry);
+
+  return formatDuration(entries.reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0));
+}
+
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -169,7 +194,6 @@ export default function Home() {
   const [detailForm, setDetailForm] = useState(emptyDetailForm);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [editingTimes, setEditingTimes] = useState<Record<string, InlineEntryEdits>>({});
@@ -293,10 +317,9 @@ export default function Home() {
     const loadEntries = window.setTimeout(() => {
       void fetchEntries();
     }, 0);
-    const ticker = window.setInterval(() => setNow(Date.now()), 1000);
+
     return () => {
       window.clearTimeout(loadEntries);
-      window.clearInterval(ticker);
     };
   }, [fetchEntries]);
 
@@ -746,9 +769,6 @@ export default function Home() {
     })
     .toSorted((firstEntry, secondEntry) => new Date(secondEntry.startTime).getTime() - new Date(firstEntry.startTime).getTime());
 
-  const totalToday = visibleEntries
-    .filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))
-    .reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0);
   const isTimerRunning = Boolean(activeEntry && !activeEntry.endTime);
   const isSelectedEntryRunning = Boolean(selectedEntry && !selectedEntry.endTime);
 
@@ -838,7 +858,9 @@ export default function Home() {
                 {isTimerRunning ? <span className="h-2 w-2 rounded-full bg-[#228B22]" aria-hidden="true" /> : null}
                 Today
               </p>
-              <p className="text-lg font-semibold tabular-nums">{formatDuration(totalToday)}</p>
+              <p className="text-lg font-semibold tabular-nums">
+                <TotalDuration entries={visibleEntries.filter((entry) => formatIrishDate(entry.startTime) === formatIrishDate(new Date()))} />
+              </p>
             </div>
             <button
               type="button"
@@ -861,7 +883,9 @@ export default function Home() {
                     <p className="mt-1 inline-flex items-center gap-2 rounded-md bg-[#e7f8e7] px-2 py-1 text-xs font-semibold uppercase text-[#1f6f1f]">
                       <span className="h-2 w-2 rounded-full bg-[#228B22]" aria-hidden="true" />
                       Running
-                      <span className="font-semibold tabular-nums">{formatDuration(now - new Date(selectedEntry.startTime).getTime())}</span>
+                      <span className="font-semibold tabular-nums">
+                        <RunningDuration startTime={selectedEntry.startTime} />
+                      </span>
                     </p>
                   ) : null}
                 </div>
@@ -1027,7 +1051,7 @@ export default function Home() {
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
                 <span className="rounded-md bg-[#dff8df] px-3 py-1 text-sm font-semibold tabular-nums text-[#1f6f1f]">
-                  {formatDuration(now - new Date(activeEntry.startTime).getTime())}
+                  <RunningDuration startTime={activeEntry.startTime} />
                 </span>
               ) : null}
             </div>
@@ -1236,7 +1260,7 @@ export default function Home() {
                           {group.date}
                         </td>
                         <td className="px-3 py-3 font-semibold tabular-nums" colSpan={2}>
-                          {formatDuration(group.total)}
+                          <TotalDuration entries={group.entries} />
                         </td>
                         <td className="px-3 py-3 text-right text-xs font-semibold text-[#25566d]" colSpan={2}>
                           {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
