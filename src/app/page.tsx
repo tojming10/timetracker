@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardEvent, FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { ClipboardEvent, FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pencil, Play, Square, Trash2 } from "lucide-react";
 import {
   entryDuration,
@@ -182,6 +182,62 @@ function TotalDuration({ entries }: { entries: Array<TimeEntry | DraftEntry> }) 
   useTicker(hasRunningEntry);
 
   return formatDuration(entries.reduce((sum, entry) => sum + entryDuration(entry.startTime, entry.endTime), 0));
+}
+
+function SmoothTextarea({
+  ariaLabel,
+  className,
+  onCommit,
+  placeholder,
+  value,
+}: {
+  ariaLabel: string;
+  className: string;
+  onCommit: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+  const latestValueRef = useRef(value);
+  const commitTimerRef = useRef<number | null>(null);
+
+  function commit(nextValue = latestValueRef.current) {
+    if (commitTimerRef.current) {
+      window.clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+
+    onCommit(nextValue);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (commitTimerRef.current) {
+        window.clearTimeout(commitTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <textarea
+      aria-label={ariaLabel}
+      className={className}
+      value={localValue}
+      onBlur={() => commit()}
+      onChange={(event) => {
+        const nextValue = event.target.value;
+        latestValueRef.current = nextValue;
+        setLocalValue(nextValue);
+
+        if (commitTimerRef.current) {
+          window.clearTimeout(commitTimerRef.current);
+        }
+
+        commitTimerRef.current = window.setTimeout(() => commit(nextValue), 350);
+      }}
+      placeholder={placeholder}
+    />
+  );
 }
 
 export default function Home() {
@@ -950,10 +1006,12 @@ export default function Home() {
               ) : null}
 
               <label className="mt-4 block text-sm font-medium">Description</label>
-              <textarea
+              <SmoothTextarea
+                key={selectedEntry.id}
+                ariaLabel="Entry description"
                 className="mt-2 min-h-28 w-full resize-y rounded-md border border-[#cfc8ba] px-3 py-3 outline-none focus:border-[#245c4f]"
                 value={detailForm.description}
-                onChange={(event) => setDetailForm({ ...detailForm, description: event.target.value })}
+                onCommit={(value) => setDetailForm((current) => ({ ...current, description: value }))}
                 placeholder="Optional notes"
               />
 
@@ -1104,10 +1162,12 @@ export default function Home() {
             ) : null}
 
             <label className="mt-4 block text-sm font-medium">Description</label>
-            <textarea
+            <SmoothTextarea
+              key="new-entry-description"
+              ariaLabel="New entry description"
               className="mt-2 min-h-28 w-full resize-y rounded-md border border-[#cfc8ba] px-3 py-3 outline-none focus:border-[#245c4f]"
               value={form.description}
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              onCommit={(value) => setForm((current) => ({ ...current, description: value }))}
               placeholder="Optional notes"
             />
 
