@@ -931,7 +931,7 @@ export default function Home() {
 
         <section className="grid gap-5 xl:grid-cols-[360px_1fr]">
           {selectedEntry ? (
-            <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm">
+            <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:self-start xl:overflow-y-auto">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Entry details</h2>
@@ -1104,7 +1104,7 @@ export default function Home() {
               </button>
             </section>
           ) : (
-          <form onSubmit={startTimer} className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm">
+          <form onSubmit={startTimer} className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:self-start xl:overflow-y-auto">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
