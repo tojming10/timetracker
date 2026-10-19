@@ -247,21 +247,7 @@ function SmoothTextarea({
 }
 
 export default function Home() {
-  const headerRef = useRef<HTMLElement>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  useEffect(() => {
-    const header = headerRef.current;
-    const main = header?.closest("main");
-    if (!header || !main) return;
-
-    const updateHeaderHeight = () => {
-      main.style.setProperty("--tracker-header-height", `${header.getBoundingClientRect().height}px`);
-    };
-    updateHeaderHeight();
-    const observer = new ResizeObserver(updateHeaderHeight);
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, [isAuthenticated]);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -914,9 +900,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f7f6] text-[#17201c]">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-3 py-5 sm:px-5 lg:px-6">
-        <header ref={headerRef} className="sticky top-0 z-30 rounded-md border border-[#dfe7e2] bg-white px-5 py-4 shadow-sm md:flex md:items-end md:justify-between">
+    <main className="min-h-screen bg-[#f4f7f6] text-[#17201c] xl:h-dvh xl:min-h-0 xl:overflow-hidden">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-6 px-3 py-5 sm:px-5 lg:px-6 xl:h-full xl:min-h-0">
+        <header className="shrink-0 rounded-md border border-[#dfe7e2] bg-white px-5 py-4 shadow-sm md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-[#5f6f68]">Irish time zone: {IRISH_TIME_ZONE}</p>
             <h1 className="text-3xl font-semibold tracking-normal text-[#17201c]">Minggay&apos;s Time Tracker</h1>
@@ -946,9 +932,9 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="grid gap-5 xl:grid-cols-[360px_1fr]">
+        <section className="grid gap-5 xl:min-h-0 xl:flex-1 xl:grid-cols-[360px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)]">
           {selectedEntry ? (
-            <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:sticky xl:top-[calc(var(--tracker-header-height,120px)+1.25rem)] xl:max-h-[calc(100dvh-var(--tracker-header-height,120px)-2.5rem)] xl:self-start xl:overflow-y-auto">
+            <section className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:max-h-full xl:self-start xl:overflow-y-auto xl:overscroll-contain">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Entry details</h2>
@@ -1121,7 +1107,7 @@ export default function Home() {
               </button>
             </section>
           ) : (
-          <form onSubmit={startTimer} className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:sticky xl:top-[calc(var(--tracker-header-height,120px)+1.25rem)] xl:max-h-[calc(100dvh-var(--tracker-header-height,120px)-2.5rem)] xl:self-start xl:overflow-y-auto">
+          <form onSubmit={startTimer} className="rounded-md border border-[#dfe7e2] bg-white p-5 shadow-sm xl:max-h-full xl:self-start xl:overflow-y-auto xl:overscroll-contain">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New task</h2>
               {activeEntry ? (
@@ -1269,7 +1255,7 @@ export default function Home() {
           </form>
           )}
 
-          <section className="overflow-hidden rounded-md border border-[#dfe7e2] bg-white shadow-sm">
+          <section className="overflow-hidden rounded-md border border-[#dfe7e2] bg-white shadow-sm xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:[scrollbar-gutter:stable]">
             <div className="flex flex-col gap-3 border-b border-[#e8efeb] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Entries</h2>
