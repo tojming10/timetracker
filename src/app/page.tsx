@@ -63,6 +63,8 @@ type InlineEntryEdits = {
   startTime: string;
   endTime: string;
   duration: string;
+  durationEdited: boolean;
+  endDayOffset: number;
   link: string;
 };
 
@@ -143,19 +145,23 @@ function getEntryEditDefaults(entry: TimeEntry | DraftEntry): InlineEntryEdits {
     startTime: toIrishTimeInput(entry.startTime),
     endTime: toIrishTimeInput(entry.endTime),
     duration: formatDuration(entryDuration(entry.startTime, entry.endTime)),
+    durationEdited: false,
+    endDayOffset: entry.endTime
+      ? getDateInputDayDifference(toIrishDateInput(entry.startTime), toIrishDateInput(entry.endTime))
+      : 0,
     link: entry.link ?? "",
   };
 }
 
-function getEndTimeForDuration(date: string, startTime: string, duration: string, fallbackEndTime: string) {
-  const durationMs = parseDurationInput(duration);
-  if (durationMs === null) return fallbackEndTime;
-
+function recalculateDuration(edit: InlineEntryEdits): InlineEntryEdits {
   try {
-    const startTimeIso = fromIrishTimeInput(fromIrishDateInput(date, "start"), startTime);
-    return toIrishTimeInput(new Date(new Date(startTimeIso).getTime() + durationMs));
+    const start = fromIrishTimeInput(fromIrishDateInput(edit.date, "start"), edit.startTime);
+    const end = edit.endTime
+      ? fromIrishTimeInput(fromIrishDateInput(addDaysToDateInput(edit.date, edit.endDayOffset), "start"), edit.endTime)
+      : null;
+    return { ...edit, durationEdited: false, duration: formatDuration(entryDuration(start, end)) };
   } catch {
-    return fallbackEndTime;
+    return { ...edit, durationEdited: false };
   }
 }
 
@@ -650,14 +656,11 @@ export default function Home() {
       return;
     }
 
-    const originalStartDate = toIrishDateInput(entry.startTime);
-    const originalEndDate = entry.endTime ? toIrishDateInput(entry.endTime) : originalStartDate;
-    const endDateOffset = getDateInputDayDifference(originalStartDate, originalEndDate);
-    const updatedEndDate = addDaysToDateInput(values.date, endDateOffset);
+    const updatedEndDate = addDaysToDateInput(values.date, values.endDayOffset);
     const startTime = fromIrishTimeInput(fromIrishDateInput(values.date, "start"), values.startTime);
-    const durationMs = values.duration ? parseDurationInput(values.duration) : null;
+    const durationMs = values.durationEdited ? parseDurationInput(values.duration) : null;
 
-    if (values.duration && durationMs === null) {
+    if (values.durationEdited && durationMs === null) {
       setMessage("Use duration as minutes, H:MM, or HH:MM:SS.");
       return;
     }
@@ -1359,10 +1362,7 @@ export default function Home() {
 
                                   return {
                                     ...current,
-                                    [entry.id]: {
-                                      ...nextEdit,
-                                      endTime: getEndTimeForDuration(nextEdit.date, nextEdit.startTime, nextEdit.duration, nextEdit.endTime),
-                                    },
+                                    [entry.id]: recalculateDuration(nextEdit),
                                   };
                                 })
                               }
@@ -1386,10 +1386,7 @@ export default function Home() {
 
                                   return {
                                     ...current,
-                                    [entry.id]: {
-                                      ...nextEdit,
-                                      endTime: getEndTimeForDuration(nextEdit.date, nextEdit.startTime, nextEdit.duration, nextEdit.endTime),
-                                    },
+                                    [entry.id]: recalculateDuration(nextEdit),
                                   };
                                 })
                               }
@@ -1406,12 +1403,11 @@ export default function Home() {
                               onChange={(event) =>
                                 setEditingTimes((current) => ({
                                   ...current,
-                                  [entry.id]: {
+                                  [entry.id]: recalculateDuration({
                                     ...getEntryEditDefaults(entry),
                                     ...current[entry.id],
                                     endTime: event.target.value,
-                                    duration: "",
-                                  },
+                                  }),
                                 }))
                               }
                             />
@@ -1436,6 +1432,7 @@ export default function Home() {
                                 const currentEdit = editingTimes[entry.id] ?? getEntryEditDefaults(entry);
                                 const durationMs = parseDurationInput(nextDuration);
                                 let nextEndTime = currentEdit.endTime;
+                                let endDayOffset = currentEdit.endDayOffset;
 
                                 if (durationMs !== null) {
                                   try {
@@ -1443,7 +1440,9 @@ export default function Home() {
                                       fromIrishDateInput(currentEdit.date, "start"),
                                       currentEdit.startTime,
                                     );
-                                    nextEndTime = toIrishTimeInput(new Date(new Date(startTime).getTime() + durationMs));
+                                    const end = new Date(new Date(startTime).getTime() + durationMs);
+                                    nextEndTime = toIrishTimeInput(end);
+                                    endDayOffset = getDateInputDayDifference(currentEdit.date, toIrishDateInput(end));
                                   } catch {
                                     nextEndTime = currentEdit.endTime;
                                   }
@@ -1455,6 +1454,8 @@ export default function Home() {
                                     ...getEntryEditDefaults(entry),
                                     ...current[entry.id],
                                     duration: nextDuration,
+                                    durationEdited: true,
+                                    endDayOffset,
                                     endTime: nextEndTime,
                                   },
                                 }));
