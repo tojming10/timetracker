@@ -9,6 +9,16 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+async function deleteUnusedScreenshot(path: string) {
+  const { count, error } = await getSupabase()
+    .from("time_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("photo_path", path);
+
+  if (error) throw new Error(error.message);
+  if (count === 0) await deleteDriveFileByUrl(path);
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const supabase = getSupabase();
@@ -78,7 +88,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if ("photoPath" in body && previousPhotoPath && previousPhotoPath !== updates.photo_path) {
       try {
-        await deleteDriveFileByUrl(previousPhotoPath);
+        await deleteUnusedScreenshot(previousPhotoPath);
       } catch (deleteError) {
         console.error("Could not delete replaced screenshot from Google Drive.", deleteError);
       }
@@ -90,10 +100,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const supabase = getSupabase();
     const { id } = await context.params;
+    const preserveScreenshots = new URL(request.url).searchParams.get("preserveScreenshots") === "true";
 
     const { data: existingEntry, error: existingError } = await supabase
       .from("time_entries")
@@ -111,9 +122,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return NextResponse.json({ message: getDatabaseErrorMessage(error.message) }, { status: 500 });
     }
 
-    if (existingEntry?.photo_path) {
+    if (existingEntry?.photo_path && !preserveScreenshots) {
       try {
-        await deleteDriveFileByUrl(existingEntry.photo_path);
+        await deleteUnusedScreenshot(existingEntry.photo_path);
       } catch (deleteError) {
         console.error("Could not delete entry screenshot from Google Drive.", deleteError);
       }
